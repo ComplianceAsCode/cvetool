@@ -63,12 +63,16 @@ func (ms *sqliteMatcherStore) updateVulnerabilities(ctx context.Context, updater
 		// Create makes a new update operation and returns the reference and ID.
 		create = `INSERT INTO update_operation (updater, fingerprint, kind, ref) VALUES ($1, $2, 'vulnerability', $3) RETURNING id;`
 		// Select existing vulnerabilities that are associated with the latest_update_operation.
+		// Name lives in metadata (name_id); selecting "name" from vuln is wrong on SQLite —
+		// a missing double-quoted identifier becomes a string literal, so every row is keyed
+		// as "name" and delta carry-forward never drops updated/deleted advisories.
 		selectExisting = `
 		SELECT
-			"name",
+			"name"."value",
 			"vuln"."id"
 		FROM
 			"vuln"
+			INNER JOIN "metadata" AS "name" ON ("vuln"."name_id" = "name"."id")
 			INNER JOIN "uo_vuln" ON ("vuln"."id" = "uo_vuln"."vuln")
 			INNER JOIN "latest_update_operations" ON (
 			"latest_update_operations"."id" = "uo_vuln"."uo"
