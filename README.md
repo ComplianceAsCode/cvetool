@@ -1,8 +1,14 @@
-[![badge](https://github.com/quay/claircore/workflows/CI/badge.svg)](https://github.com/ComplianceAsCode/cvetool) [![badge](https://copr.fedorainfracloud.org/coprs/packit/ComplianceAsCode-cvetool-main/package/cvetool/status_image/last_build.png)](https://copr.fedorainfracloud.org/coprs/packit/ComplianceAsCode-cvetool-main/)
+[![badge](https://github.com/quay/claircore/workflows/CI/badge.svg)](https://github.com/ComplianceAsCode/cvetool)
 
 # CVE Tool
 
 A [Claircore](https://github.com/quay/claircore)-based CVE manager (see also [clair-action](https://github.com/quay/clair-action/)).
+
+# Install
+You can install cvetool from the copr repos below.
+
+* [![rhel copr badge](https://copr.fedorainfracloud.org/coprs/packit/ComplianceAsCode-cvetool-main-rhel/package/cvetool/status_image/last_build.png)](https://copr.fedorainfracloud.org/coprs/packit/ComplianceAsCode-cvetool-main-rhel/) - RHEL
+* [![fedora copr badge](https://copr.fedorainfracloud.org/coprs/packit/ComplianceAsCode-cvetool-main-fedora/package/cvetool/status_image/last_build.png)](https://copr.fedorainfracloud.org/coprs/packit/ComplianceAsCode-cvetool-main-fedora/) - Fedora
 
 # Build
 
