@@ -1,6 +1,7 @@
 package main
 
 import (
+	"context"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -12,6 +13,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/ComplianceAsCode/cvetool/catalog"
 	"github.com/quay/claircore"
 	"github.com/quay/claircore/enricher/cvss"
 	"github.com/quay/claircore/indexer"
@@ -92,6 +94,10 @@ var scanCmd = &cli.Command{
 			Usage:   "where to look for the matcher DB",
 			EnvVars: []string{"DB_PATH"},
 		},
+		&cli.PathFlag{
+			Name:  "catalog",
+			Usage: "path to an offline RHEL package catalog",
+		},
 		&cli.GenericFlag{
 			Name:    "format",
 			Aliases: []string{"f"},
@@ -112,7 +118,7 @@ var scanCmd = &cli.Command{
 	},
 }
 
-func scan(c *cli.Context) error {
+func scan(c *cli.Context) (scanErr error) {
 	ctx := c.Context
 
 	var (
@@ -122,6 +128,7 @@ func scan(c *cli.Context) error {
 		imgPath         = c.String("image-path")
 		dbPath          = c.String("db-path")
 		dbURL           = c.String("db-url")
+		catalogPath     = c.Path("catalog")
 		format          = c.String("format")
 		returnCode      = c.Int("return-code")
 		dockerConfigDir = c.String("docker-config-dir")
@@ -222,6 +229,23 @@ func scan(c *cli.Context) error {
 		},
 		FetchArena: fa,
 	}
+	catalogReader, catalogCleanup, err := configureCatalogScanner(catalogPath, indexerOpts)
+	if err != nil {
+		return fmt.Errorf("error loading catalog: %v", err)
+	}
+	if catalogReader != nil {
+		defer func() {
+			if err := closeCatalog(catalogReader.Close); err != nil {
+				closeErr := fmt.Errorf("error closing catalog: %w", err)
+				if scanErr == nil {
+					scanErr = closeErr
+				} else {
+					scanErr = errors.Join(scanErr, closeErr)
+				}
+			}
+			catalogCleanup()
+		}()
+	}
 	li, err := libindex.New(ctx, indexerOpts, http.DefaultClient)
 	if err != nil {
 		return fmt.Errorf("error creating Libindex: %v", err)
@@ -240,8 +264,12 @@ func scan(c *cli.Context) error {
 	default:
 		return fmt.Errorf("error creating index report: %v", err)
 	}
-
-	vr, err := lv.Scan(ctx, ir)
+	var vr *claircore.VulnerabilityReport
+	err = scanWithCatalogValidation(ctx, catalogReader, ir, func() error {
+		var err error
+		vr, err = lv.Scan(ctx, ir)
+		return err
+	})
 	if err != nil {
 		return fmt.Errorf("error creating vulnerability report: %v", err)
 	}
@@ -284,8 +312,81 @@ func scan(c *cli.Context) error {
 	}
 
 	if len(vr.Vulnerabilities) > 0 {
-		os.Exit(returnCode)
+		return cli.Exit(nil, returnCode)
+	}
+	return nil
+}
+
+func scanWithCatalogValidation(ctx context.Context, reader catalog.Reader, report *claircore.IndexReport, scan func() error) error {
+	if reader != nil {
+		metadata, err := reader.Metadata(ctx)
+		if err != nil {
+			return fmt.Errorf("error reading catalog metadata: %v", err)
+		}
+		if err := validateCatalogMetadata(metadata, report); err != nil {
+			return err
+		}
+		diagnostics, err := catalog.EnrichIndexReport(ctx, report, reader)
+		if err != nil {
+			return fmt.Errorf("error enriching index report from catalog: %v", err)
+		}
+		zlog.Info(ctx).
+			Int("packages_inspected", diagnostics.PackagesInspected).
+			Int("catalog_matches", diagnostics.CatalogMatches).
+			Int("unmapped_packages", diagnostics.UnmappedPackages).
+			Int("repositories_added", diagnostics.RepositoriesAdded).
+			Msg("enriched index report from catalog")
+	}
+	return scan()
+}
+
+func closeCatalog(close func() error) error {
+	return close()
+}
+
+func configureCatalogScanner(path string, opts *libindex.Options) (catalog.Reader, func(), error) {
+	if path == "" {
+		return nil, nil, nil
+	}
+	reader, err := catalog.OpenJSONReader(path)
+	if err != nil {
+		return nil, nil, err
+	}
+	mappingPath, cleanup, err := reader.RepositoryMappingFile()
+	if err != nil {
+		reader.Close()
+		return nil, nil, err
+	}
+	if opts.ScannerConfig.Repo == nil {
+		opts.ScannerConfig.Repo = map[string]func(any) error{}
+	}
+	opts.ScannerConfig.Repo["rhel-repository-scanner"] = func(value any) error {
+		config, ok := value.(*rhel.RepositoryScannerConfig)
+		if !ok {
+			return fmt.Errorf("expected *rhel.RepositoryScannerConfig, got %T", value)
+		}
+		config.Repo2CPEMappingFile = mappingPath
+		config.Repo2CPEMappingURL = ""
 		return nil
+	}
+	return reader, cleanup, nil
+}
+
+func validateCatalogMetadata(metadata catalog.Metadata, report *claircore.IndexReport) error {
+	for _, distribution := range report.Distributions {
+		if distribution == nil || distribution.DID != "rhel" {
+			continue
+		}
+		version := distribution.VersionID
+		if version == "" {
+			version = distribution.Version
+		}
+		if version != metadata.RHELVersion {
+			return fmt.Errorf("catalog RHEL version %q does not match discovered version %q", metadata.RHELVersion, version)
+		}
+		if distribution.Arch != "" && distribution.Arch != metadata.Architecture {
+			return fmt.Errorf("catalog architecture %q does not match discovered architecture %q", metadata.Architecture, distribution.Arch)
+		}
 	}
 	return nil
 }
