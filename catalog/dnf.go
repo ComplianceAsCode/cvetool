@@ -25,7 +25,7 @@ func QueryDNF(ctx context.Context, runner CommandRunner, dnfPath, repositoryID, 
 	if runner == nil {
 		runner = execCommandRunner{}
 	}
-	output, err := runner.Run(ctx, dnfPath, "--quiet", "--repo="+repositoryID, "--arch="+architecture, "repoquery", "--qf", dnfQueryFormat)
+	output, err := runner.Run(ctx, dnfPath, "--quiet", "--repo="+repositoryID, "--arch="+architecture+",noarch", "repoquery", "--qf", dnfQueryFormat)
 	if err != nil {
 		return nil, fmt.Errorf("query repository %q: %w", repositoryID, err)
 	}

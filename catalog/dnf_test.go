@@ -19,16 +19,19 @@ func (f *fakeCommandRunner) Run(_ context.Context, path string, args ...string) 
 }
 
 func TestDNFUsesExactRepositoryAndQueryFormat(t *testing.T) {
-	runner := &fakeCommandRunner{output: []byte("bash\t0\t5.1.8\t6.el9\tx86_64\n")}
+	runner := &fakeCommandRunner{output: []byte("bash\t0\t5.1.8\t6.el9\tx86_64\nexample\t0\t1.0\t1.el9\tnoarch\n")}
 	got, err := QueryDNF(context.Background(), runner, "dnf", "rhel-9-for-x86_64-baseos-rpms", "x86_64")
 	if err != nil {
 		t.Fatal(err)
 	}
-	want := []NEVRA{{Name: "bash", Epoch: "0", Version: "5.1.8", Release: "6.el9", Arch: "x86_64"}}
+	want := []NEVRA{
+		{Name: "bash", Epoch: "0", Version: "5.1.8", Release: "6.el9", Arch: "x86_64"},
+		{Name: "example", Epoch: "0", Version: "1.0", Release: "1.el9", Arch: "noarch"},
+	}
 	if !reflect.DeepEqual(got, want) {
 		t.Fatalf("rows mismatch: %#v != %#v", got, want)
 	}
-	wantArgs := [][]string{{"dnf", "--quiet", "--repo=rhel-9-for-x86_64-baseos-rpms", "--arch=x86_64", "repoquery", "--qf", dnfQueryFormat}}
+	wantArgs := [][]string{{"dnf", "--quiet", "--repo=rhel-9-for-x86_64-baseos-rpms", "--arch=x86_64,noarch", "repoquery", "--qf", dnfQueryFormat}}
 	if !reflect.DeepEqual(runner.args, wantArgs) {
 		t.Fatalf("unexpected command: %#v != %#v", runner.args, wantArgs)
 	}
