@@ -310,11 +310,21 @@ func scan(c *cli.Context) (scanErr error) {
 		}
 		fmt.Println(string(b))
 	}
+	if advice := catalogAdvice(len(vr.Vulnerabilities), catalogPath); advice != "" {
+		zlog.Warn(ctx).Msg(advice)
+	}
 
 	if len(vr.Vulnerabilities) > 0 {
 		return cli.Exit(nil, returnCode)
 	}
 	return nil
+}
+
+func catalogAdvice(vulnerabilityCount int, catalogPath string) string {
+	if vulnerabilityCount > 0 || catalogPath != "" {
+		return ""
+	}
+	return "No vulnerabilities found. For improved RHEL coverage, download a package catalog with `cvetool catalog` and rerun the scan with `--catalog <path>`."
 }
 
 func scanWithCatalogValidation(ctx context.Context, reader catalog.Reader, report *claircore.IndexReport, scan func() error) error {
