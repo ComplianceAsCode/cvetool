@@ -263,6 +263,29 @@ func TestCatalogCloseErrorIsReturned(t *testing.T) {
 	}
 }
 
+func TestCatalogAdvice(t *testing.T) {
+	advice := catalogAdvice(0, "")
+	if !strings.Contains(advice, "cvetool catalog") || !strings.Contains(advice, "--catalog <path>") {
+		t.Fatalf("catalog advice = %q, want catalog command and scan flag", advice)
+	}
+}
+
+func TestCatalogAdviceNotNeeded(t *testing.T) {
+	for name, args := range map[string]struct {
+		vulnerabilities int
+		catalogPath     string
+	}{
+		"vulnerabilities found": {vulnerabilities: 1},
+		"catalog provided":      {catalogPath: "catalog.json"},
+	} {
+		t.Run(name, func(t *testing.T) {
+			if advice := catalogAdvice(args.vulnerabilities, args.catalogPath); advice != "" {
+				t.Fatalf("catalog advice = %q, want no advice", advice)
+			}
+		})
+	}
+}
+
 type roundTripFunc func(*http.Request) (*http.Response, error)
 
 func (f roundTripFunc) RoundTrip(r *http.Request) (*http.Response, error) { return f(r) }
