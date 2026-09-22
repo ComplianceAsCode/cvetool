@@ -15,7 +15,6 @@ import (
 	"os"
 	"path"
 	"path/filepath"
-	"strings"
 
 	"github.com/google/go-containerregistry/pkg/authn"
 	"github.com/google/go-containerregistry/pkg/name"
@@ -52,17 +51,21 @@ func rt(ctx context.Context, ref string) (http.RoundTripper, error) {
 	return rt, nil
 }
 
-func ManifestFromRemote(ctx context.Context, r string) (*claircore.Manifest, error) {
-	rt, err := rt(ctx, r)
+// NewRegistryClient returns an authenticated client for the registry hosting ref.
+func NewRegistryClient(ctx context.Context, ref string) (*http.Client, error) {
+	rt, err := rt(ctx, ref)
 	if err != nil {
 		return nil, err
 	}
+	return &http.Client{Transport: rt}, nil
+}
 
+func ManifestFromRemote(ctx context.Context, cl *http.Client, r string) (*claircore.Manifest, error) {
 	ref, err := name.ParseReference(r)
 	if err != nil {
 		return nil, err
 	}
-	desc, err := remote.Get(ref, remote.WithTransport(rt))
+	desc, err := remote.Get(ref, remote.WithTransport(cl.Transport))
 	if err != nil {
 		return nil, err
 	}
@@ -98,9 +101,6 @@ func ManifestFromRemote(ctx context.Context, r string) (*claircore.Manifest, err
 		Scheme: repo.Scheme(),
 		Host:   repo.RegistryStr(),
 	}
-	c := http.Client{
-		Transport: rt,
-	}
 
 	for _, l := range ls {
 		d, err := l.Digest()
@@ -111,27 +111,13 @@ func ManifestFromRemote(ctx context.Context, r string) (*claircore.Manifest, err
 		if err != nil {
 			return nil, err
 		}
-		u, err := rURL.Parse(path.Join("/", "v2", strings.TrimPrefix(repo.RepositoryStr(), repo.RegistryStr()), "blobs", d.String()))
+		u, err := rURL.Parse(path.Join("/", "v2", repo.RepositoryStr(), "blobs", d.String()))
 		if err != nil {
 			return nil, err
 		}
-		req, err := http.NewRequestWithContext(ctx, http.MethodGet, u.String(), nil)
-		if err != nil {
-			return nil, err
-		}
-		req.Header.Add("Range", "bytes=0-0")
-		res, err := c.Do(req)
-		if err != nil {
-			return nil, err
-		}
-		res.Body.Close()
-
-		res.Request.Header.Del("User-Agent")
-		res.Request.Header.Del("Range")
 		out.Layers = append(out.Layers, &claircore.Layer{
-			Hash:    ccd,
-			URI:     res.Request.URL.String(),
-			Headers: res.Request.Header,
+			Hash: ccd,
+			URI:  u.String(),
 		})
 	}
 
