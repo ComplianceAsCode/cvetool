@@ -9,6 +9,11 @@ sha256sum = "f597097efe3d97021f89170746bd3a0fb9a8b6fb26b82043ed68a4e0283bee6c"
 expression = "(MIT WITH LicenseRef-scancode-musl-exception) AND (LicenseRef-scancode-other-permissive AND BSD-2-Clause) AND (BSD-3-Clause AND (LicenseRef-scancode-public-domain OR LicenseRef-scancode-other-permissive) AND MIT)"
 
 [[licensing.licenses]]
-path = "vendor/modernc.org/sqlite/SQLITE-LICENSE"
+path = "vendor/modernc.org/sqlite/LICENSE-SQLITE"
 sha256sum = "8438c9c89b849131ead81d5435cb97fcf052df5b0b286dda8a2d4c29e6cb3fd0"
 expression = "blessing"
+
+[[licensing.licenses]]
+path = "vendor/go.yaml.in/yaml/v3/LICENSE"
+sha256sum = "d18f6323b71b0b768bb5e9616e36da390fbd39369a81807cca352de4e4e6aa0b"
+expression = "MIT AND Apache-2.0"

@@ -6,6 +6,7 @@ import (
 	"testing"
 
 	"github.com/quay/claircore"
+	"github.com/quay/claircore/toolkit/types"
 )
 
 func latestFixedInByName(t *testing.T, store *sqliteMatcherStore, updater string) map[string][]string {
@@ -51,7 +52,7 @@ func TestDeltaUpdateDropsReplacedAndDeletedByName(t *testing.T) {
 	}
 
 	updater := "test-updater"
-	pkg := &claircore.Package{Name: "pkg", Kind: "binary"}
+	pkg := &claircore.Package{Name: "pkg", Kind: types.BinaryPackage}
 	dist := &claircore.Distribution{DID: "rhel", Name: "RHEL", Version: "9"}
 
 	old := &claircore.Vulnerability{

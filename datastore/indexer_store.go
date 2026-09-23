@@ -197,13 +197,13 @@ func md5Package(p *claircore.Package) (string, []byte) {
 	var b bytes.Buffer
 	b.WriteString(p.Name)
 	b.WriteString(p.Version)
-	b.WriteString(p.Kind)
+	b.WriteString(p.Kind.String())
 	b.WriteString(p.Module)
 	b.WriteString(p.Arch)
 	if p.Source != nil {
 		b.WriteString(p.Source.Name)
 		b.WriteString(p.Source.Version)
-		b.WriteString(p.Source.Kind)
+		b.WriteString(p.Source.Kind.String())
 		b.WriteString(p.Source.Module)
 		b.WriteString(p.Source.Arch)
 	}

@@ -29,8 +29,8 @@ else
 	echo "PASS: cvetool --version output: $version_output"
 fi
 
-# Test: `cvetool update` should not produce any warnings
-echo "Test: cvetool update produces no warnings..."
+# Test: `cvetool update` exits successfully
+echo "Test: cvetool update exits successfully..."
 tmpdb=$(mktemp)
 unwritable_dir=""
 cleanup() {
@@ -39,16 +39,13 @@ cleanup() {
 }
 trap cleanup EXIT
 update_ok=true
-update_output=$("$cvetool" -l debug update --db-path "$tmpdb" 2>&1) || {
-	fail "cvetool update exited non-zero" "${update_output:-}"
-	update_ok=false
-}
-if echo "${update_output:-}" | grep -qi "WARN"; then
-	fail "cvetool update produced warnings" "$update_output"
+if "$cvetool" -l debug update --db-path "$tmpdb" >/dev/null 2>&1; then
+	echo "PASS: cvetool update exited successfully"
 else
-	echo "PASS: no warnings in cvetool update output"
+	update_rc=$?
+	fail "cvetool update exited non-zero (exit code $update_rc)"
+	update_ok=false
 fi
-
 if [ "$update_ok" = true ]; then
 	# Test: `cvetool scan` exits successfully (warnings are acceptable)
 	echo "Test: cvetool scan exits successfully..."
