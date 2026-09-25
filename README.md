@@ -49,6 +49,11 @@ to scan the underlying system and generate vulnerabilities report.
 
 The `--root-path` argument defines root directory of the target file system.
 
+For local or mounted RHEL filesystem roots, cvetool automatically discovers
+the target's enabled repositories with DNF and generates a temporary package
+catalog for the scan. The temporary catalog and DNF cache are removed when the
+scan finishes.
+
 ## Scan a Container Image
 
 Run
@@ -71,6 +76,26 @@ to mount the file system, and then
 $ ./cvetool scan --root-path=./rhel10-vm --db-path=./matcher.db
 ```
 to scan and generate vulnerabilities report.
+
+## Generate and Use a Package Catalog
+
+Offline filesystem scans and container image scans can use an explicit catalog
+instead of discovering repositories from the target root. Generate a catalog
+on a connected RHEL system with the relevant repositories enabled:
+
+```
+$ ./cvetool catalog --output=./rhel10.catalog
+```
+
+The standalone `cvetool catalog` command remains available for preparing a
+catalog ahead of a scan. Use a catalog for the target's RHEL major version and
+architecture, then pass it to the offline filesystem or image scan with
+`--catalog`:
+
+```
+$ ./cvetool scan --root-path=./rhel10-vm --db-path=./matcher.db --catalog=./rhel10.catalog
+$ ./cvetool scan --image-path=./rhel-10-ubi.tar --db-path=./matcher.db --catalog=./rhel10.catalog
+```
 
 # Report Formats
 

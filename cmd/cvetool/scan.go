@@ -229,22 +229,19 @@ func scan(c *cli.Context) (scanErr error) {
 		},
 		FetchArena: fa,
 	}
-	catalogReader, catalogCleanup, err := configureCatalogScanner(catalogPath, indexerOpts)
+	preparedCatalog, err := prepareScanCatalogForSource(ctx, scanCatalogOptions{
+		ExplicitPath: catalogPath,
+		TargetRoot:   rootPath,
+		DNF:          catalog.DNFOptions{Path: "dnf"},
+	}, imgPath, imgRef)
 	if err != nil {
-		return fmt.Errorf("error loading catalog: %v", err)
+		return fmt.Errorf("error preparing scan catalog: %w", err)
 	}
-	if catalogReader != nil {
-		defer func() {
-			if err := closeCatalog(catalogReader.Close); err != nil {
-				closeErr := fmt.Errorf("error closing catalog: %w", err)
-				if scanErr == nil {
-					scanErr = closeErr
-				} else {
-					scanErr = errors.Join(scanErr, closeErr)
-				}
-			}
-			catalogCleanup()
-		}()
+	if preparedCatalog != nil {
+		defer func() { scanErr = closeScanCatalog(scanErr, preparedCatalog) }()
+		if err := preparedCatalog.configureScanner(indexerOpts); err != nil {
+			return fmt.Errorf("error configuring scan catalog: %w", err)
+		}
 	}
 	li, err := libindex.New(ctx, indexerOpts, http.DefaultClient)
 	if err != nil {
@@ -265,6 +262,10 @@ func scan(c *cli.Context) (scanErr error) {
 		return fmt.Errorf("error creating index report: %v", err)
 	}
 	var vr *claircore.VulnerabilityReport
+	var catalogReader catalog.Reader
+	if preparedCatalog != nil {
+		catalogReader = preparedCatalog.Reader
+	}
 	err = scanWithCatalogValidation(ctx, catalogReader, ir, func() error {
 		var err error
 		vr, err = lv.Scan(ctx, ir)
@@ -310,8 +311,10 @@ func scan(c *cli.Context) (scanErr error) {
 		}
 		fmt.Println(string(b))
 	}
-	if advice := catalogAdvice(len(vr.Vulnerabilities), catalogPath); advice != "" {
-		zlog.Warn(ctx).Msg(advice)
+	if preparedCatalog == nil {
+		if advice := catalogAdvice(len(vr.Vulnerabilities), catalogPath); advice != "" {
+			zlog.Warn(ctx).Msg(advice)
+		}
 	}
 
 	if len(vr.Vulnerabilities) > 0 {
@@ -348,38 +351,6 @@ func scanWithCatalogValidation(ctx context.Context, reader catalog.Reader, repor
 			Msg("enriched index report from catalog")
 	}
 	return scan()
-}
-
-func closeCatalog(close func() error) error {
-	return close()
-}
-
-func configureCatalogScanner(path string, opts *libindex.Options) (catalog.Reader, func(), error) {
-	if path == "" {
-		return nil, nil, nil
-	}
-	reader, err := catalog.OpenJSONReader(path)
-	if err != nil {
-		return nil, nil, err
-	}
-	mappingPath, cleanup, err := reader.RepositoryMappingFile()
-	if err != nil {
-		reader.Close()
-		return nil, nil, err
-	}
-	if opts.ScannerConfig.Repo == nil {
-		opts.ScannerConfig.Repo = map[string]func(any) error{}
-	}
-	opts.ScannerConfig.Repo["rhel-repository-scanner"] = func(value any) error {
-		config, ok := value.(*rhel.RepositoryScannerConfig)
-		if !ok {
-			return fmt.Errorf("expected *rhel.RepositoryScannerConfig, got %T", value)
-		}
-		config.Repo2CPEMappingFile = mappingPath
-		config.Repo2CPEMappingURL = ""
-		return nil
-	}
-	return reader, cleanup, nil
 }
 
 func validateCatalogMetadata(metadata catalog.Metadata, report *claircore.IndexReport) error {
