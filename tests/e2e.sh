@@ -1,7 +1,8 @@
 #!/usr/bin/env bash
 set -u -o pipefail
 
-cvetool="./cvetool"
+cvetool="${CVETOOL_BIN:-./cvetool}"
+expected_cve="CVE-2099-0001"
 failures=0
 
 fail() {
@@ -29,8 +30,8 @@ else
 	echo "PASS: cvetool --version output: $version_output"
 fi
 
-# Test: `cvetool update` exits successfully
-echo "Test: cvetool update exits successfully..."
+# Scan tests use a copy because scan runs database migrations.
+echo "Test: cvetool scan uses the bundled matcher fixture..."
 tmpdb=$(mktemp)
 unwritable_dir=""
 cleanup() {
@@ -38,15 +39,14 @@ cleanup() {
 	rm -f "$tmpdb"
 }
 trap cleanup EXIT
-update_ok=true
-if "$cvetool" -l debug update --db-path "$tmpdb" >/dev/null 2>&1; then
-	echo "PASS: cvetool update exited successfully"
+fixture_ok=true
+if cp -- tests/testdata/matcher.db "$tmpdb"; then
+	echo "PASS: copied matcher fixture"
 else
-	update_rc=$?
-	fail "cvetool update exited non-zero (exit code $update_rc)"
-	update_ok=false
+	fail "could not copy matcher fixture"
+	fixture_ok=false
 fi
-if [ "$update_ok" = true ]; then
+if [ "$fixture_ok" = true ]; then
 	# Test: `cvetool scan` exits successfully (warnings are acceptable)
 	echo "Test: cvetool scan exits successfully..."
 	scan_output=$("$cvetool" -l debug scan --db-path "$tmpdb" 2>&1) || {
@@ -57,6 +57,11 @@ if [ "$update_ok" = true ]; then
 	else
 		echo "PASS: cvetool scan exited successfully"
 	fi
+	if [[ "${scan_output:-}" != *"$expected_cve"* ]]; then
+		fail "cvetool scan did not report $expected_cve" "${scan_output:-}"
+	else
+		echo "PASS: cvetool scan reported $expected_cve"
+	fi
 
 	# Test: `cvetool scan --format sarif` produces valid JSON
 	echo "Test: cvetool scan --format sarif produces valid JSON..."
@@ -65,8 +70,10 @@ if [ "$update_ok" = true ]; then
 	}
 	if ! echo "${json_output:-}" | jq . >/dev/null 2>&1; then
 		fail "cvetool scan --format sarif produced invalid JSON" "$json_output"
+	elif ! jq -e --arg cve "$expected_cve" 'tostring | contains($cve)' <<<"$json_output" >/dev/null 2>&1; then
+		fail "cvetool scan --format sarif did not report $expected_cve" "$json_output"
 	else
-		echo "PASS: cvetool scan --format sarif output is valid JSON"
+		echo "PASS: cvetool scan --format sarif output is valid JSON and reports $expected_cve"
 	fi
 
 	# Test: `cvetool scan --format quay` produces valid JSON
@@ -76,11 +83,13 @@ if [ "$update_ok" = true ]; then
 	}
 	if ! echo "${json_output:-}" | jq . >/dev/null 2>&1; then
 		fail "cvetool scan --format quay produced invalid JSON" "$json_output"
+	elif ! jq -e --arg cve "$expected_cve" 'tostring | contains($cve)' <<<"$json_output" >/dev/null 2>&1; then
+		fail "cvetool scan --format quay did not report $expected_cve" "$json_output"
 	else
-		echo "PASS: cvetool scan --format quay output is valid JSON"
+		echo "PASS: cvetool scan --format quay output is valid JSON and reports $expected_cve"
 	fi
 else
-	echo "SKIP: scan tests skipped because cvetool update failed"
+	echo "SKIP: scan tests skipped because the matcher fixture was unavailable"
 fi
 
 # Test: `cvetool scan` with a bad db path should fail
