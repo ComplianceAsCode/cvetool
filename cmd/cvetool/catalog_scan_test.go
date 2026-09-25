@@ -794,6 +794,7 @@ func writeScanCatalogTarget(t *testing.T, root, id, version string) {
 		"etc/os-release":          "ID=" + id + "\nVERSION_ID=" + version + "\n",
 		"etc/dnf/dnf.conf":        "[main]\nreposdir=/etc/cvetool/repos.d\n",
 		"etc/dnf/vars/releasever": version + "\n",
+		"var/lib/rpm/Packages":    "",
 	}
 	for path, contents := range files {
 		fullPath := filepath.Join(root, filepath.FromSlash(path))

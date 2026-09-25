@@ -6,6 +6,7 @@ import (
 	"os"
 	"path/filepath"
 	"slices"
+	"strings"
 	"testing"
 )
 
@@ -245,27 +246,61 @@ func TestResolveTargetRepoDirsRejectsDefaultSymlinkEscape(t *testing.T) {
 	}
 }
 
-func TestQueryInstalledRPMArchitecturesUsesTargetRootAndExcludesSourceAndPlaceholderArchitectures(t *testing.T) {
-	runner := &fakeCommandRunner{output: []byte("(none)\nx86_64\n(none)\ni686\nnoarch\nsrc\nnosrc\nx86_64\n(none)\n")}
-	got, err := QueryInstalledRPMArchitectures(context.Background(), runner, "rpm", "/target")
-	if err != nil {
-		t.Fatal(err)
-	}
-	want := []string{"i686", "noarch", "x86_64"}
-	if !slices.Equal(got, want) {
-		t.Fatalf("RPM architectures = %v, want %v", got, want)
-	}
-	wantCommand := []string{"rpm", "--root=/target", "--query", "--all", "--queryformat=%{ARCH}\\n"}
-	if len(runner.args) != 1 || !slices.Equal(runner.args[0], wantCommand) {
-		t.Fatalf("RPM command = %#v, want %#v", runner.args, [][]string{wantCommand})
+func TestQueryInstalledRPMArchitecturesUsesTargetRPMDBPathAndExcludesSourceAndPlaceholderArchitectures(t *testing.T) {
+	for _, test := range []struct {
+		name        string
+		databaseDir string
+		database    string
+	}{
+		{name: "RHEL 8 legacy path", databaseDir: "var/lib/rpm", database: "Packages"},
+		{name: "sysimage path", databaseDir: "usr/lib/sysimage/rpm", database: "rpmdb.sqlite"},
+	} {
+		t.Run(test.name, func(t *testing.T) {
+			root := t.TempDir()
+			writeTargetFile(t, root, filepath.Join(test.databaseDir, test.database), "")
+			runner := &fakeCommandRunner{output: []byte("(none)\nx86_64\n(none)\ni686\nnoarch\nsrc\nnosrc\nx86_64\n(none)\n")}
+			got, err := QueryInstalledRPMArchitectures(context.Background(), runner, "rpm", root)
+			if err != nil {
+				t.Fatal(err)
+			}
+			want := []string{"i686", "noarch", "x86_64"}
+			if !slices.Equal(got, want) {
+				t.Fatalf("RPM architectures = %v, want %v", got, want)
+			}
+			wantCommand := []string{
+				"rpm",
+				"--root=" + root,
+				"--dbpath=/" + test.databaseDir,
+				"--query",
+				"--all",
+				"--queryformat=%{ARCH}\\n",
+			}
+			if len(runner.args) != 1 || !slices.Equal(runner.args[0], wantCommand) {
+				t.Fatalf("RPM command = %#v, want %#v", runner.args, [][]string{wantCommand})
+			}
+		})
 	}
 }
 
 func TestQueryInstalledRPMArchitecturesReturnsCommandErrors(t *testing.T) {
+	root := t.TempDir()
+	writeTargetFile(t, root, "var/lib/rpm/Packages", "")
 	commandErr := errors.New("rpm failed")
-	_, err := QueryInstalledRPMArchitectures(context.Background(), &fakeCommandRunner{err: commandErr}, "rpm", "/target")
+	_, err := QueryInstalledRPMArchitectures(context.Background(), &fakeCommandRunner{err: commandErr}, "rpm", root)
 	if !errors.Is(err, commandErr) {
 		t.Fatalf("query error = %v, want wrapped %v", err, commandErr)
+	}
+}
+
+func TestQueryInstalledRPMArchitecturesRequiresTargetRPMDatabase(t *testing.T) {
+	root := t.TempDir()
+	runner := &fakeCommandRunner{output: []byte("x86_64\n")}
+	_, err := QueryInstalledRPMArchitectures(context.Background(), runner, "rpm", root)
+	if err == nil || !strings.Contains(err.Error(), "target RPM database not found") {
+		t.Fatalf("query error = %v, want missing target RPM database error", err)
+	}
+	if len(runner.args) != 0 {
+		t.Fatalf("RPM command ran without a target RPM database: %#v", runner.args)
 	}
 }
 

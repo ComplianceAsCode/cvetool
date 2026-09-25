@@ -298,11 +298,15 @@ func QueryInstalledRPMArchitectures(ctx context.Context, runner CommandRunner, r
 	if strings.TrimSpace(rpmPath) == "" {
 		return nil, fmt.Errorf("rpm path is required")
 	}
+	databasePath, err := resolveTargetRPMDatabasePath(installRoot)
+	if err != nil {
+		return nil, err
+	}
 	if runner == nil {
 		runner = execCommandRunner{}
 	}
 
-	output, err := runner.Run(ctx, rpmPath, "--root="+installRoot, "--query", "--all", "--queryformat=%{ARCH}\\n")
+	output, err := runner.Run(ctx, rpmPath, "--root="+installRoot, "--dbpath="+databasePath, "--query", "--all", "--queryformat=%{ARCH}\\n")
 	if err != nil {
 		return nil, fmt.Errorf("query installed RPM architectures under %q: %w", installRoot, err)
 	}
@@ -326,6 +330,26 @@ func QueryInstalledRPMArchitectures(ctx context.Context, runner CommandRunner, r
 	}
 	sort.Strings(architectures)
 	return architectures, nil
+}
+
+func resolveTargetRPMDatabasePath(root string) (string, error) {
+	targetRoot, _, err := openTargetRoot(root)
+	if err != nil {
+		return "", err
+	}
+	defer targetRoot.Close()
+
+	for _, databaseDir := range []string{"usr/lib/sysimage/rpm", "var/lib/rpm"} {
+		for _, databaseFile := range []string{"Packages", "rpmdb.sqlite"} {
+			path := filepath.Join(databaseDir, databaseFile)
+			if _, err := targetRoot.Stat(path); err == nil {
+				return string(filepath.Separator) + filepath.FromSlash(databaseDir), nil
+			} else if !errors.Is(err, os.ErrNotExist) {
+				return "", fmt.Errorf("inspect target RPM database at %q: %w", path, err)
+			}
+		}
+	}
+	return "", fmt.Errorf("target RPM database not found (checked /usr/lib/sysimage/rpm and /var/lib/rpm)")
 }
 
 func openTargetRoot(root string) (*os.Root, string, error) {
