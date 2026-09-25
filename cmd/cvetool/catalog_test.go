@@ -73,6 +73,7 @@ func TestResolveCatalogInputsFullyExplicitSkipsDiscovery(t *testing.T) {
 func TestResolveCatalogInputsInfersHostValuesAndSkipsUnmappedRepositories(t *testing.T) {
 	root := t.TempDir()
 	writeCatalogInputFile(t, root, "etc/os-release", "ID=rhel\nVERSION_ID=10.2\n")
+	writeCatalogInputFile(t, root, "var/lib/rpm/Packages", "")
 	mappingPath := filepath.Join(t.TempDir(), "mapping.json")
 	if err := os.WriteFile(mappingPath, []byte(`{"data":{"mapped-repo":{"cpes":["cpe:/o:redhat:enterprise_linux:10"]}}}`), 0o600); err != nil {
 		t.Fatal(err)
@@ -96,7 +97,7 @@ func TestResolveCatalogInputsInfersHostValuesAndSkipsUnmappedRepositories(t *tes
 		t.Fatalf("package architectures = %v", got.DNF.Architectures)
 	}
 	wantCalls := [][]string{
-		{"rpm", "--root=" + root, "--query", "--all", "--queryformat=%{ARCH}\\n"},
+		{"rpm", "--root=" + root, "--dbpath=/var/lib/rpm", "--query", "--all", "--queryformat=%{ARCH}\\n"},
 		{"/opt/dnf", "--quiet", "repolist", "--enabled"},
 	}
 	if !reflect.DeepEqual(runner.calls, wantCalls) {
@@ -107,6 +108,7 @@ func TestResolveCatalogInputsInfersHostValuesAndSkipsUnmappedRepositories(t *tes
 func TestResolveCatalogInputsPreservesExplicitValuesIndividually(t *testing.T) {
 	root := t.TempDir()
 	writeCatalogInputFile(t, root, "etc/os-release", "ID=rhel\nVERSION_ID=10.2\n")
+	writeCatalogInputFile(t, root, "var/lib/rpm/Packages", "")
 
 	t.Run("matching primary still reads RPM inventory for multilib", func(t *testing.T) {
 		runner := &catalogInputCommandRunner{outputs: map[string][]byte{
@@ -124,7 +126,7 @@ func TestResolveCatalogInputsPreservesExplicitValuesIndividually(t *testing.T) {
 		if !reflect.DeepEqual(got.DNF.Architectures, []string{"i686", "noarch", "x86_64"}) {
 			t.Fatalf("matching explicit architecture did not retain installed multilib: %v", got.DNF.Architectures)
 		}
-		wantCalls := [][]string{{"rpm", "--root=" + root, "--query", "--all", "--queryformat=%{ARCH}\\n"}}
+		wantCalls := [][]string{{"rpm", "--root=" + root, "--dbpath=/var/lib/rpm", "--query", "--all", "--queryformat=%{ARCH}\\n"}}
 		if !reflect.DeepEqual(runner.calls, wantCalls) {
 			t.Fatalf("explicit architecture discovery = %#v, want RPM inventory only %#v", runner.calls, wantCalls)
 		}
@@ -149,6 +151,7 @@ func TestResolveCatalogInputsPreservesExplicitValuesIndividually(t *testing.T) {
 
 func TestResolveCatalogInputsExplicitArchitectureFiltersHostArchitectures(t *testing.T) {
 	root := t.TempDir()
+	writeCatalogInputFile(t, root, "var/lib/rpm/Packages", "")
 
 	t.Run("same primary keeps installed multilib", func(t *testing.T) {
 		runner := &catalogInputCommandRunner{outputs: map[string][]byte{
