@@ -12,6 +12,7 @@ import (
 	"github.com/ComplianceAsCode/cvetool/datastore/sqlite"
 	"github.com/quay/claircore"
 	"github.com/quay/claircore/libvuln"
+	"github.com/quay/claircore/toolkit/types"
 )
 
 func TestCatalogRepositoryCPEReachesRHELMatcher(t *testing.T) {
@@ -30,7 +31,7 @@ func TestCatalogRepositoryCPEReachesRHELMatcher(t *testing.T) {
 		Name:           "CVE-2026-40355",
 		Updater:        "rhel-vex",
 		Issued:         time.Date(2026, 9, 16, 0, 0, 0, 0, time.UTC),
-		Package:        &claircore.Package{Name: "krb5-libs", Version: "1.21.1-10.el9", Arch: "x86_64", Kind: claircore.BINARY},
+		Package:        &claircore.Package{Name: "krb5-libs", Version: "1.21.1-10.el9", Arch: "x86_64", Kind: types.BinaryPackage},
 		Dist:           &claircore.Distribution{DID: "rhel", VersionID: "9", Arch: "x86_64"},
 		Repo:           &claircore.Repository{Key: "rhel-cpe-repository", Name: "cpe:2.3:o:redhat:enterprise_linux:9:*:baseos:*:*:*:*:*"},
 		FixedInVersion: "1.21.1-10.el9_8",
@@ -104,7 +105,7 @@ func reportHasVulnerability(report *claircore.VulnerabilityReport, name string) 
 func fixtureIndexReport() *claircore.IndexReport {
 	return &claircore.IndexReport{
 		Packages: map[string]*claircore.Package{
-			"krb5-libs": {ID: "krb5-libs", Name: "krb5-libs", Version: "0:1.21.1-10.el9", Arch: "x86_64", Kind: claircore.BINARY, Source: &claircore.Package{}},
+			"krb5-libs": {ID: "krb5-libs", Name: "krb5-libs", Version: "0:1.21.1-10.el9", Arch: "x86_64", Kind: types.BinaryPackage, Source: &claircore.Package{}},
 		},
 		Distributions: map[string]*claircore.Distribution{
 			"rhel": {DID: "rhel", VersionID: "9", Arch: "x86_64"},
