@@ -1,6 +1,7 @@
 package main
 
 import (
+	"context"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -12,6 +13,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/ComplianceAsCode/cvetool/catalog"
 	"github.com/quay/claircore"
 	"github.com/quay/claircore/enricher/cvss"
 	"github.com/quay/claircore/indexer"
@@ -92,6 +94,10 @@ var scanCmd = &cli.Command{
 			Usage:   "where to look for the matcher DB",
 			EnvVars: []string{"DB_PATH"},
 		},
+		&cli.PathFlag{
+			Name:  "catalog",
+			Usage: "path to an offline RHEL package catalog",
+		},
 		&cli.GenericFlag{
 			Name:    "format",
 			Aliases: []string{"f"},
@@ -112,7 +118,7 @@ var scanCmd = &cli.Command{
 	},
 }
 
-func scan(c *cli.Context) error {
+func scan(c *cli.Context) (scanErr error) {
 	ctx := c.Context
 
 	var (
@@ -122,6 +128,7 @@ func scan(c *cli.Context) error {
 		imgPath         = c.String("image-path")
 		dbPath          = c.String("db-path")
 		dbURL           = c.String("db-url")
+		catalogPath     = c.Path("catalog")
 		format          = c.String("format")
 		returnCode      = c.Int("return-code")
 		dockerConfigDir = c.String("docker-config-dir")
@@ -222,6 +229,20 @@ func scan(c *cli.Context) error {
 		},
 		FetchArena: fa,
 	}
+	preparedCatalog, err := prepareScanCatalogForSource(ctx, scanCatalogOptions{
+		ExplicitPath: catalogPath,
+		TargetRoot:   rootPath,
+		DNF:          catalog.DNFOptions{Path: "dnf"},
+	}, imgPath, imgRef)
+	if err != nil {
+		return fmt.Errorf("error preparing scan catalog: %w", err)
+	}
+	if preparedCatalog != nil {
+		defer func() { scanErr = closeScanCatalog(scanErr, preparedCatalog) }()
+		if err := preparedCatalog.configureScanner(indexerOpts); err != nil {
+			return fmt.Errorf("error configuring scan catalog: %w", err)
+		}
+	}
 	li, err := libindex.New(ctx, indexerOpts, http.DefaultClient)
 	if err != nil {
 		return fmt.Errorf("error creating Libindex: %v", err)
@@ -240,8 +261,16 @@ func scan(c *cli.Context) error {
 	default:
 		return fmt.Errorf("error creating index report: %v", err)
 	}
-
-	vr, err := lv.Scan(ctx, ir)
+	var vr *claircore.VulnerabilityReport
+	var catalogReader catalog.Reader
+	if preparedCatalog != nil {
+		catalogReader = preparedCatalog.Reader
+	}
+	err = scanWithCatalogValidation(ctx, catalogReader, ir, func() error {
+		var err error
+		vr, err = lv.Scan(ctx, ir)
+		return err
+	})
 	if err != nil {
 		return fmt.Errorf("error creating vulnerability report: %v", err)
 	}
@@ -282,10 +311,63 @@ func scan(c *cli.Context) error {
 		}
 		fmt.Println(string(b))
 	}
+	if preparedCatalog == nil {
+		if advice := catalogAdvice(len(vr.Vulnerabilities), catalogPath); advice != "" {
+			zlog.Warn(ctx).Msg(advice)
+		}
+	}
 
 	if len(vr.Vulnerabilities) > 0 {
-		os.Exit(returnCode)
-		return nil
+		return cli.Exit(nil, returnCode)
+	}
+	return nil
+}
+
+func catalogAdvice(vulnerabilityCount int, catalogPath string) string {
+	if vulnerabilityCount > 0 || catalogPath != "" {
+		return ""
+	}
+	return "No vulnerabilities found. For improved RHEL coverage, download a package catalog with `cvetool catalog` and rerun the scan with `--catalog <path>`."
+}
+
+func scanWithCatalogValidation(ctx context.Context, reader catalog.Reader, report *claircore.IndexReport, scan func() error) error {
+	if reader != nil {
+		metadata, err := reader.Metadata(ctx)
+		if err != nil {
+			return fmt.Errorf("error reading catalog metadata: %v", err)
+		}
+		if err := validateCatalogMetadata(metadata, report); err != nil {
+			return err
+		}
+		diagnostics, err := catalog.EnrichIndexReport(ctx, report, reader)
+		if err != nil {
+			return fmt.Errorf("error enriching index report from catalog: %v", err)
+		}
+		zlog.Info(ctx).
+			Int("packages_inspected", diagnostics.PackagesInspected).
+			Int("catalog_matches", diagnostics.CatalogMatches).
+			Int("unmapped_packages", diagnostics.UnmappedPackages).
+			Int("repositories_added", diagnostics.RepositoriesAdded).
+			Msg("enriched index report from catalog")
+	}
+	return scan()
+}
+
+func validateCatalogMetadata(metadata catalog.Metadata, report *claircore.IndexReport) error {
+	for _, distribution := range report.Distributions {
+		if distribution == nil || distribution.DID != "rhel" {
+			continue
+		}
+		version := distribution.VersionID
+		if version == "" {
+			version = distribution.Version
+		}
+		if version != metadata.RHELVersion {
+			return fmt.Errorf("catalog RHEL version %q does not match discovered version %q", metadata.RHELVersion, version)
+		}
+		if distribution.Arch != "" && distribution.Arch != metadata.Architecture {
+			return fmt.Errorf("catalog architecture %q does not match discovered architecture %q", metadata.Architecture, distribution.Arch)
+		}
 	}
 	return nil
 }

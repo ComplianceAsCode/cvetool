@@ -44,6 +44,7 @@ func main() {
 		Commands: []*cli.Command{
 			scanCmd,
 			updateCmd,
+			catalogCmd,
 		},
 		Flags: []cli.Flag{
 			&cli.StringFlag{
