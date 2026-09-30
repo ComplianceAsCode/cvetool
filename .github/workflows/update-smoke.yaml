@@ -4,7 +4,7 @@ name: Live updater smoke
 on:
   workflow_dispatch:
   schedule:
-    - cron: '23 4 * * 1'
+    - cron: '23 4 * * *'
 
 permissions:
   contents: read
