@@ -199,6 +199,11 @@ func (ms *sqliteMatcherStore) updateVulnerabilities(ctx context.Context, updater
 			err = fmt.Errorf("iterating on vulnerabilities: %w", iterErr)
 			return false
 		}
+		if vuln.Invert {
+			vulnCt++
+			skipCt++
+			return true
+		}
 
 		// Get or save description
 		var descID int64

@@ -44,7 +44,7 @@ func latestFixedInByName(t *testing.T, store *sqliteMatcherStore, updater string
 // Selecting "name" from vuln on SQLite silently becomes the string literal
 // "name", so delta carry-forward never drops updated/deleted advisories and
 // stale FixedInVersion rows stay queryable after cvetool update.
-func TestDeltaUpdateDropsReplacedAndDeletedByName(t *testing.T) {
+func TestVulnerabilityUpdatesAndDeltaSemantics(t *testing.T) {
 	ctx := context.Background()
 	store, err := NewSQLiteMatcherStore(filepath.Join(t.TempDir(), "matcher.db"), true)
 	if err != nil {
@@ -54,6 +54,36 @@ func TestDeltaUpdateDropsReplacedAndDeletedByName(t *testing.T) {
 	updater := "test-updater"
 	pkg := &claircore.Package{Name: "pkg", Kind: types.BinaryPackage}
 	dist := &claircore.Distribution{DID: "rhel", Name: "RHEL", Version: "9"}
+
+	fullUpdater := "test-full-updater"
+	normal := &claircore.Vulnerability{
+		Name:           "CVE-2024-0010",
+		Updater:        fullUpdater,
+		Description:    "vulnerable",
+		Package:        pkg,
+		Dist:           dist,
+		FixedInVersion: "1.0.0",
+	}
+	inverted := &claircore.Vulnerability{
+		Name:           "CVE-2024-0011",
+		Updater:        fullUpdater,
+		Description:    "known not affected",
+		Package:        pkg,
+		Dist:           dist,
+		FixedInVersion: "2.0.0",
+		Invert:         true,
+	}
+	if _, err := store.UpdateVulnerabilities(ctx, fullUpdater, "full-fp", []*claircore.Vulnerability{normal, inverted}); err != nil {
+		t.Fatalf("full update: %v", err)
+	}
+
+	byName := latestFixedInByName(t, store, fullUpdater)
+	if got := byName[normal.Name]; len(got) != 1 || got[0] != "1.0.0" {
+		t.Errorf("normal vulnerability = %v, want [1.0.0]", got)
+	}
+	if got := byName[inverted.Name]; len(got) != 0 {
+		t.Errorf("inverted vulnerability = %v, want it skipped", got)
+	}
 
 	old := &claircore.Vulnerability{
 		Name:           "CVE-2024-0001",
@@ -100,7 +130,7 @@ func TestDeltaUpdateDropsReplacedAndDeletedByName(t *testing.T) {
 		t.Fatalf("delta with replace+delete: %v", err)
 	}
 
-	byName := latestFixedInByName(t, store, updater)
+	byName = latestFixedInByName(t, store, updater)
 
 	if got := byName["CVE-2024-0001"]; len(got) != 1 || got[0] != "2.0.0" {
 		t.Errorf("CVE-2024-0001 FixedInVersion = %v, want [2.0.0] only (stale 1.0.0 must not carry forward)", got)
@@ -110,5 +140,19 @@ func TestDeltaUpdateDropsReplacedAndDeletedByName(t *testing.T) {
 	}
 	if _, ok := byName["CVE-2024-0003"]; ok {
 		t.Errorf("CVE-2024-0003 still present after delete: %v", byName["CVE-2024-0003"])
+	}
+
+	invertedReplacement := *updated
+	invertedReplacement.Invert = true
+	if _, err := store.DeltaUpdateVulnerabilities(ctx, updater, "fp4", []*claircore.Vulnerability{&invertedReplacement}, nil); err != nil {
+		t.Fatalf("delta replacing positive with inverted: %v", err)
+	}
+
+	byName = latestFixedInByName(t, store, updater)
+	if got := byName[updated.Name]; len(got) != 0 {
+		t.Errorf("replaced positive vulnerability = %v, want it absent", got)
+	}
+	if got := byName[staleAlso.Name]; len(got) != 1 || got[0] != "1.0.0" {
+		t.Errorf("unaffected vulnerability = %v, want carried-forward [1.0.0]", got)
 	}
 }
