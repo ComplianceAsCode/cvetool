@@ -16,6 +16,9 @@ clean:
 	rm -f cvetool
 	rm -rf vendor
 
-.PHONY: e2e
+.PHONY: e2e e2e-update
 e2e: cvetool
 	bash tests/e2e.sh
+
+e2e-update: cvetool
+	bash tests/e2e-update.sh

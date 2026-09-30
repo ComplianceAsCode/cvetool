@@ -60,6 +60,12 @@ install -m 0755 -vp %{gobuilddir}/bin/* %{buildroot}%{_bindir}/
 %gotest ./...
 %endif
 
+%clean
+if [ -d "%{gobuilddir}/pkg/mod" ]; then
+    find "%{gobuilddir}/pkg/mod" -type d -exec chmod u+w {} +
+fi
+rm -rf "%{buildroot}"
+
 %if 0%{?fedora}
 %files -f %{go_vendor_license_filelist}
 %else
