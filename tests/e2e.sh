@@ -72,6 +72,7 @@ if [ "$fixture_ok" = true ]; then
 	else
 		fail "automatic root catalog scan did not report positive catalog_matches" "$(<"$tmpstderr")"
 	fi
+	scan_output=$(<"$tmpstdout")
 	if [[ "${scan_output:-}" != *"$expected_cve"* ]]; then
 		fail "cvetool scan did not report $expected_cve" "${scan_output:-}"
 	else
