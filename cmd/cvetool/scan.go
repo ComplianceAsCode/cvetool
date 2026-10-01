@@ -1,9 +1,11 @@
 package main
 
 import (
+	"context"
 	"encoding/json"
 	"errors"
 	"fmt"
+	"io"
 	"io/fs"
 	"net/http"
 	"os"
@@ -113,6 +115,25 @@ var scanCmd = &cli.Command{
 }
 
 func scan(c *cli.Context) error {
+	var exitCode int
+	if err := scanWithStatus(c, &exitCode); err != nil {
+		return err
+	}
+	if exitCode != 0 {
+		os.Exit(exitCode)
+	}
+	return nil
+}
+
+func closeScanResources(ctx context.Context, li *libindex.Libindex, fa *trackingFetchArena) error {
+	var err error
+	if li != nil {
+		err = li.Close(ctx)
+	}
+	return errors.Join(err, fa.Close(ctx))
+}
+
+func scanWithStatus(c *cli.Context, exitCode *int) (err error) {
 	ctx := c.Context
 
 	var (
@@ -129,12 +150,12 @@ func scan(c *cli.Context) error {
 
 	var (
 		mf *claircore.Manifest
-		fa indexer.FetchArena
+		fa *trackingFetchArena
+		li *libindex.Libindex
 	)
 	switch {
 	case imgRef != "":
 		cl := http.DefaultClient
-		fa = libindex.NewRemoteFetchArena(cl, os.TempDir())
 		err := os.Setenv("DOCKER_CONFIG", dockerConfigDir)
 		if err != nil {
 			return fmt.Errorf("error setting DOCKER_CONFIG env var")
@@ -143,27 +164,25 @@ func scan(c *cli.Context) error {
 		if err != nil {
 			return fmt.Errorf("error getting image information: %v", err)
 		}
+		fa = newTrackingFetchArena(libindex.NewRemoteFetchArena(cl, os.TempDir()))
 	case imgPath != "":
-		fa = &LocalFetchArena{}
-		var err error
-		mf, err = image.ManifestFromLocal(ctx, imgPath)
+		var readerCloser io.Closer
+		mf, readerCloser, err = image.ManifestFromLocal(ctx, imgPath)
 		if err != nil {
 			return fmt.Errorf("error getting image information: %v", err)
 		}
+		fa = newTrackingFetchArena(NewLocalFetchArena(mf.Layers, readerCloser))
 	case rootPath != "":
-		fa = &LocalFetchArena{}
-		var err error
 		mf, err = image.ManifestFromFilesystem(ctx, rootPath)
 		if err != nil {
 			return fmt.Errorf("error getting filesystem information: %v", err)
 		}
+		fa = newTrackingFetchArena(NewLocalFetchArena(mf.Layers, nil))
 	default:
 		return fmt.Errorf("no --image-path ($IMAGE_PATH), --image-ref ($IMAGE_REF) or --root-path ($ROOT_PATH) set")
 	}
 	defer func() {
-		for _, l := range mf.Layers {
-			l.Close()
-		}
+		err = errors.Join(err, closeScanResources(ctx, li, fa))
 	}()
 
 	switch {
@@ -222,7 +241,7 @@ func scan(c *cli.Context) error {
 		},
 		FetchArena: fa,
 	}
-	li, err := libindex.New(ctx, indexerOpts, http.DefaultClient)
+	li, err = libindex.New(ctx, indexerOpts, http.DefaultClient)
 	if err != nil {
 		return fmt.Errorf("error creating Libindex: %v", err)
 	}
@@ -284,8 +303,7 @@ func scan(c *cli.Context) error {
 	}
 
 	if len(vr.Vulnerabilities) > 0 {
-		os.Exit(returnCode)
-		return nil
+		*exitCode = returnCode
 	}
 	return nil
 }
