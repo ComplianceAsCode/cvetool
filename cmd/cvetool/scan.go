@@ -95,7 +95,7 @@ var scanCmd = &cli.Command{
 			EnvVars: []string{"DB_PATH"},
 		},
 		&cli.PathFlag{
-			Name:  "catalog",
+			Name:  "catalog-path",
 			Usage: "path to an offline RHEL package catalog",
 		},
 		&cli.GenericFlag{
@@ -128,7 +128,7 @@ func scan(c *cli.Context) (scanErr error) {
 		imgPath         = c.String("image-path")
 		dbPath          = c.String("db-path")
 		dbURL           = c.String("db-url")
-		catalogPath     = c.Path("catalog")
+		catalogPath     = c.Path("catalog-path")
 		format          = c.String("format")
 		returnCode      = c.Int("return-code")
 		dockerConfigDir = c.String("docker-config-dir")
@@ -327,7 +327,7 @@ func catalogAdvice(vulnerabilityCount int, catalogPath string) string {
 	if vulnerabilityCount > 0 || catalogPath != "" {
 		return ""
 	}
-	return "No vulnerabilities found. For improved RHEL coverage, download a package catalog with `cvetool catalog` and rerun the scan with `--catalog <path>`."
+	return "No vulnerabilities found. For improved RHEL coverage, download a package catalog with `cvetool catalog` and rerun the scan with `--catalog-path <path>`."
 }
 
 func scanWithCatalogValidation(ctx context.Context, reader catalog.Reader, report *claircore.IndexReport, scan func() error) error {

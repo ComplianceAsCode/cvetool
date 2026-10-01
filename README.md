@@ -84,17 +84,17 @@ instead of discovering repositories from the target root. Generate a catalog
 on a connected RHEL system with the relevant repositories enabled:
 
 ```
-$ ./cvetool catalog --output=./rhel10.catalog
+$ ./cvetool catalog --output-path=./rhel10.catalog
 ```
 
 The standalone `cvetool catalog` command remains available for preparing a
 catalog ahead of a scan. Use a catalog for the target's RHEL major version and
 architecture, then pass it to the offline filesystem or image scan with
-`--catalog`:
+`--catalog-path`:
 
 ```
-$ ./cvetool scan --root-path=./rhel10-vm --db-path=./matcher.db --catalog=./rhel10.catalog
-$ ./cvetool scan --image-path=./rhel-10-ubi.tar --db-path=./matcher.db --catalog=./rhel10.catalog
+$ ./cvetool scan --root-path=./rhel10-vm --db-path=./matcher.db --catalog-path=./rhel10.catalog
+$ ./cvetool scan --image-path=./rhel-10-ubi.tar --db-path=./matcher.db --catalog-path=./rhel10.catalog
 ```
 
 # Report Formats

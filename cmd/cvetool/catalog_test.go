@@ -27,9 +27,9 @@ func TestCatalogCommandHelp(t *testing.T) {
 		"--rhel-version",
 		"--arch",
 		"--repo-id",
-		"--output",
+		"--output-path",
 		"--dnf-path",
-		"--repo-cpe-mapping-file",
+		"--repo-cpe-mapping-path",
 		"--repo-cpe-mapping-url",
 	} {
 		if !strings.Contains(output.String(), flag) {

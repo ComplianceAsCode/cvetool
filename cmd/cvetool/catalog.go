@@ -29,11 +29,11 @@ var catalogCmd = &cli.Command{
 			Usage: "repository ID to catalog (repeatable)",
 		},
 		&cli.PathFlag{
-			Name:  "output",
+			Name:  "output-path",
 			Usage: "path for the generated catalog database",
 		},
 		&cli.PathFlag{
-			Name:  "repo-cpe-mapping-file",
+			Name:  "repo-cpe-mapping-path",
 			Usage: "local repository-to-CPE mapping file",
 		},
 		&cli.StringFlag{
@@ -53,8 +53,8 @@ func generateCatalog(c *cli.Context) error {
 		RHELVersion:   c.String("rhel-version"),
 		Architecture:  c.String("arch"),
 		RepositoryIDs: c.StringSlice("repo-id"),
-		OutputPath:    c.Path("output"),
-		MappingFile:   c.Path("repo-cpe-mapping-file"),
+		OutputPath:    c.Path("output-path"),
+		MappingFile:   c.Path("repo-cpe-mapping-path"),
 		MappingURL:    c.String("repo-cpe-mapping-url"),
 		DNFPath:       c.Path("dnf-path"),
 	}, "/")

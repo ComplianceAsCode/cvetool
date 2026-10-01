@@ -663,7 +663,7 @@ func TestCatalogCloseJoinsMappingRemovalError(t *testing.T) {
 
 func TestCatalogAdvice(t *testing.T) {
 	advice := catalogAdvice(0, "")
-	if !strings.Contains(advice, "cvetool catalog") || !strings.Contains(advice, "--catalog <path>") {
+	if !strings.Contains(advice, "cvetool catalog") || !strings.Contains(advice, "--catalog-path <path>") {
 		t.Fatalf("catalog advice = %q, want catalog command and scan flag", advice)
 	}
 }

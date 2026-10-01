@@ -51,11 +51,11 @@ else
 fi
 if [ "$fixture_ok" = true ]; then
 	# Test: a default root scan automatically generates a catalog and produces JSON
-	echo "Test: cvetool scan without --catalog automatically generates a root catalog..."
+	echo "Test: cvetool scan without --catalog-path automatically generates a root catalog..."
 	if "$cvetool" -l debug scan --db-path "$tmpdb" --format clair >"$tmpstdout" 2>"$tmpstderr"; then
 		echo "PASS: default root scan exited successfully"
 	else
-		fail "cvetool scan without --catalog exited non-zero" "$(<"$tmpstderr")"
+		fail "cvetool scan without --catalog-path exited non-zero" "$(<"$tmpstderr")"
 	fi
 	if grep -qi "ERR" "$tmpstderr"; then
 		fail "cvetool scan produced errors" "$(<"$tmpstderr")"
@@ -63,9 +63,9 @@ if [ "$fixture_ok" = true ]; then
 		echo "PASS: default root scan produced no errors"
 	fi
 	if ! jq -e 'type == "object"' "$tmpstdout" >/dev/null 2>&1; then
-		fail "cvetool scan without --catalog produced invalid JSON" "$(<"$tmpstdout")"
+		fail "cvetool scan without --catalog-path produced invalid JSON" "$(<"$tmpstdout")"
 	else
-		echo "PASS: cvetool scan without --catalog produced valid JSON"
+		echo "PASS: cvetool scan without --catalog-path produced valid JSON"
 	fi
 	if sed -E $'s/\x1B\\[[0-9;]*m//g' "$tmpstderr" | grep -Eq '(^|[^[:alnum:]_])"?catalog_matches"?[[:space:]]*[:=][[:space:]]*[1-9][0-9]*([[:space:]]|$)'; then
 		echo "PASS: automatic root catalog scan reported positive catalog_matches"
@@ -82,7 +82,7 @@ if [ "$fixture_ok" = true ]; then
 	# Generate one reusable catalog for the format scans below.
 	echo "Test: cvetool catalog generates a reusable package catalog..."
 	catalog_ok=true
-	catalog_output=$("$cvetool" -l debug catalog --output "$tmpcatalog" 2>&1) || {
+	catalog_output=$("$cvetool" -l debug catalog --output-path "$tmpcatalog" 2>&1) || {
 		fail "cvetool catalog exited non-zero" "${catalog_output:-}"
 		catalog_ok=false
 	}
@@ -93,7 +93,7 @@ if [ "$fixture_ok" = true ]; then
 	if [ "$catalog_ok" = true ]; then
 		# Test: `cvetool scan --format sarif` produces valid JSON with an explicit catalog
 		echo "Test: cvetool scan --format sarif produces valid JSON..."
-		json_output=$("$cvetool" -l debug scan --db-path "$tmpdb" --catalog "$tmpcatalog" --format sarif 2>/dev/null) || {
+		json_output=$("$cvetool" -l debug scan --db-path "$tmpdb" --catalog-path "$tmpcatalog" --format sarif 2>/dev/null) || {
 			fail "cvetool scan --format sarif exited non-zero" "${json_output:-}"
 		}
 		if ! echo "${json_output:-}" | jq . >/dev/null 2>&1; then
@@ -104,7 +104,7 @@ if [ "$fixture_ok" = true ]; then
 
 		# Test: `cvetool scan --format quay` produces valid JSON with an explicit catalog
 		echo "Test: cvetool scan --format quay produces valid JSON..."
-		json_output=$("$cvetool" -l debug scan --db-path "$tmpdb" --catalog "$tmpcatalog" --format quay 2>/dev/null) || {
+		json_output=$("$cvetool" -l debug scan --db-path "$tmpdb" --catalog-path "$tmpcatalog" --format quay 2>/dev/null) || {
 			fail "cvetool scan --format quay exited non-zero" "${json_output:-}"
 		}
 		if ! echo "${json_output:-}" | jq . >/dev/null 2>&1; then
