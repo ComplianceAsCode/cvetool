@@ -94,7 +94,7 @@ architecture, then pass it to the offline filesystem or image scan with
 
 ```
 $ cvetool scan --root-path=./rhel10-vm --db-path=./matcher.db --catalog-path=./rhel10.catalog
-$ ./cvetool scan --image-path=./rhel-10-ubi.tar --db-path=./matcher.db --catalog-path=./rhel10.catalog
+$ cvetool scan --image-path=./rhel-10-ubi.tar --db-path=./matcher.db --catalog-path=./rhel10.catalog
 ```
 
 # Report Formats
