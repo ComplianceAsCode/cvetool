@@ -12,9 +12,10 @@ import (
 )
 
 var catalogCmd = &cli.Command{
-	Name:   "catalog",
-	Usage:  "generate an RHEL package catalog",
-	Action: generateCatalog,
+	Name:    "catalog",
+	Aliases: []string{"c"},
+	Usage:   "generate an RHEL package catalog",
+	Action:  generateCatalog,
 	Flags: []cli.Flag{
 		&cli.StringFlag{
 			Name:  "rhel-version",
