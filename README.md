@@ -93,7 +93,7 @@ architecture, then pass it to the offline filesystem or image scan with
 `--catalog-path`:
 
 ```
-$ ./cvetool scan --root-path=./rhel10-vm --db-path=./matcher.db --catalog-path=./rhel10.catalog
+$ cvetool scan --root-path=./rhel10-vm --db-path=./matcher.db --catalog-path=./rhel10.catalog
 $ ./cvetool scan --image-path=./rhel-10-ubi.tar --db-path=./matcher.db --catalog-path=./rhel10.catalog
 ```
 
