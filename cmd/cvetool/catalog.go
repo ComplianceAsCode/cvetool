@@ -17,18 +17,6 @@ var catalogCmd = &cli.Command{
 	Usage:   "generate an RHEL package catalog",
 	Action:  generateCatalog,
 	Flags: []cli.Flag{
-		&cli.StringFlag{
-			Name:  "rhel-version",
-			Usage: "RHEL version to catalog",
-		},
-		&cli.StringFlag{
-			Name:  "arch",
-			Usage: "package architecture to catalog",
-		},
-		&cli.StringSliceFlag{
-			Name:  "repo-id",
-			Usage: "repository ID to catalog (repeatable)",
-		},
 		&cli.PathFlag{
 			Name:  "output-path",
 			Usage: "path for the generated catalog database",
@@ -51,13 +39,10 @@ var catalogCmd = &cli.Command{
 
 func generateCatalog(c *cli.Context) error {
 	options, err := resolveCatalogInputsAtRoot(c.Context, catalog.GenerateOptions{
-		RHELVersion:   c.String("rhel-version"),
-		Architecture:  c.String("arch"),
-		RepositoryIDs: c.StringSlice("repo-id"),
-		OutputPath:    c.Path("output-path"),
-		MappingFile:   c.Path("repo-cpe-mapping-path"),
-		MappingURL:    c.String("repo-cpe-mapping-url"),
-		DNFPath:       c.Path("dnf-path"),
+		OutputPath:  c.Path("output-path"),
+		MappingFile: c.Path("repo-cpe-mapping-path"),
+		MappingURL:  c.String("repo-cpe-mapping-url"),
+		DNFPath:     c.Path("dnf-path"),
 	}, "/")
 	if err != nil {
 		return fmt.Errorf("resolve catalog inputs: %w", err)
@@ -83,60 +68,42 @@ func resolveCatalogInputsAtRoot(ctx context.Context, options catalog.GenerateOpt
 	}
 	options.DNFPath = dnfPath
 
-	var architectures catalog.ArchitectureSet
-	if len(options.DNF.Architectures) != 0 {
-		architectures, err = catalog.ResolveTargetArchitecture(options.DNF.Architectures)
-	} else {
-		var installed []string
-		installed, err = catalog.QueryInstalledRPMArchitectures(ctx, options.CommandRunner, "rpm", root)
-		if err == nil {
-			architectures, err = catalog.ResolveTargetArchitecture(installed)
-		}
-	}
+	installed, err := catalog.QueryInstalledRPMArchitectures(ctx, options.CommandRunner, "rpm", root)
 	if err != nil {
 		return catalog.GenerateOptions{}, fmt.Errorf("resolve host architecture: %w", err)
 	}
-	if options.Architecture == "" {
-		options.Architecture = architectures.Primary
+	architectures, err := catalog.ResolveTargetArchitecture(installed)
+	if err != nil {
+		return catalog.GenerateOptions{}, fmt.Errorf("resolve host architecture: %w", err)
 	}
-	if options.Architecture == architectures.Primary {
-		options.DNF.Architectures = architectures.Packages
-	} else {
-		requestedArchitecture, err := catalog.ResolveTargetArchitecture([]string{options.Architecture})
-		if err != nil {
-			return catalog.GenerateOptions{}, fmt.Errorf("resolve requested architecture: %w", err)
-		}
-		options.DNF.Architectures = requestedArchitecture.Packages
-	}
-	if options.RHELVersion == "" {
-		osRelease, err := os.ReadFile(filepath.Join(root, "etc", "os-release"))
-		if err != nil {
-			return catalog.GenerateOptions{}, fmt.Errorf("read host os-release: %w", err)
-		}
-		targetInfo, err := catalog.ResolveTargetInfo(osRelease, "", architectures)
-		if err != nil {
-			return catalog.GenerateOptions{}, fmt.Errorf("resolve host RHEL version: %w", err)
-		}
-		options.RHELVersion = targetInfo.RHELVersion
-	}
+	options.Architecture = architectures.Primary
+	options.DNF.Architectures = architectures.Packages
 
-	if len(options.RepositoryIDs) == 0 {
-		enabled, err := catalog.EnabledHostRepositories(ctx, options.CommandRunner, dnfPath)
-		if err != nil {
-			return catalog.GenerateOptions{}, err
-		}
-		mapping, err := catalog.LoadRepositoryMapping(ctx, options.MappingFile, options.MappingURL)
-		if err != nil {
-			return catalog.GenerateOptions{}, err
-		}
-		selection, selectionErr := catalog.SelectMappedRepositories(mapping, enabled)
-		for _, id := range selection.Skipped {
-			zlog.Warn(ctx).Str("repository_id", id).Msg("skipping enabled repository without a CPE mapping")
-		}
-		if selectionErr != nil {
-			return catalog.GenerateOptions{}, selectionErr
-		}
-		options.RepositoryIDs = selection.Mapped
+	osRelease, err := os.ReadFile(filepath.Join(root, "etc", "os-release"))
+	if err != nil {
+		return catalog.GenerateOptions{}, fmt.Errorf("read host os-release: %w", err)
 	}
+	targetInfo, err := catalog.ResolveTargetInfo(osRelease, "", architectures)
+	if err != nil {
+		return catalog.GenerateOptions{}, fmt.Errorf("resolve host RHEL version: %w", err)
+	}
+	options.RHELVersion = targetInfo.RHELVersion
+
+	enabled, err := catalog.EnabledHostRepositories(ctx, options.CommandRunner, dnfPath)
+	if err != nil {
+		return catalog.GenerateOptions{}, err
+	}
+	mapping, err := catalog.LoadRepositoryMapping(ctx, options.MappingFile, options.MappingURL)
+	if err != nil {
+		return catalog.GenerateOptions{}, err
+	}
+	selection, selectionErr := catalog.SelectMappedRepositories(mapping, enabled)
+	for _, id := range selection.Skipped {
+		zlog.Warn(ctx).Str("repository_id", id).Msg("skipping enabled repository without a CPE mapping")
+	}
+	if selectionErr != nil {
+		return catalog.GenerateOptions{}, selectionErr
+	}
+	options.RepositoryIDs = selection.Mapped
 	return options, nil
 }

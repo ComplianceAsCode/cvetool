@@ -24,9 +24,6 @@ func TestCatalogCommandHelp(t *testing.T) {
 		t.Fatal(err)
 	}
 	for _, flag := range []string{
-		"--rhel-version",
-		"--arch",
-		"--repo-id",
 		"--output-path",
 		"--dnf-path",
 		"--repo-cpe-mapping-path",
@@ -41,7 +38,7 @@ func TestCatalogCommandHelp(t *testing.T) {
 func TestCatalogCommandRequiresOutput(t *testing.T) {
 	app := cli.NewApp()
 	app.Commands = []*cli.Command{catalogCmd}
-	err := app.Run([]string{"cvetool", "catalog", "--rhel-version", "9", "--arch", "x86_64", "--repo-id", "repo"})
+	err := app.Run([]string{"cvetool", "catalog"})
 	if err == nil {
 		t.Fatal("catalog command accepted a missing output path")
 	}
@@ -49,27 +46,6 @@ func TestCatalogCommandRequiresOutput(t *testing.T) {
 		t.Fatalf("expected output validation error, got %v", err)
 	}
 }
-
-func TestResolveCatalogInputsFullyExplicitSkipsDiscovery(t *testing.T) {
-	runner := &catalogInputCommandRunner{}
-	options := catalog.GenerateOptions{
-		RHELVersion: "10", Architecture: "aarch64", RepositoryIDs: []string{"manual-repo"},
-		OutputPath: "catalog.json", DNFPath: "/custom/dnf", CommandRunner: runner,
-		DNF: catalog.DNFOptions{Architectures: []string{"aarch64", "noarch"}},
-	}
-
-	got, err := resolveCatalogInputsAtRoot(context.Background(), options, "/")
-	if err != nil {
-		t.Fatal(err)
-	}
-	if got.RHELVersion != "10" || got.Architecture != "aarch64" || !reflect.DeepEqual(got.RepositoryIDs, []string{"manual-repo"}) || got.DNFPath != "/custom/dnf" {
-		t.Fatalf("resolved explicit inputs = %#v", got)
-	}
-	if len(runner.calls) != 0 {
-		t.Fatalf("explicit inputs triggered discovery commands: %#v", runner.calls)
-	}
-}
-
 func TestResolveCatalogInputsInfersHostValuesAndSkipsUnmappedRepositories(t *testing.T) {
 	root := t.TempDir()
 	writeCatalogInputFile(t, root, "etc/os-release", "ID=rhel\nVERSION_ID=10.2\n")
@@ -105,99 +81,10 @@ func TestResolveCatalogInputsInfersHostValuesAndSkipsUnmappedRepositories(t *tes
 	}
 }
 
-func TestResolveCatalogInputsPreservesExplicitValuesIndividually(t *testing.T) {
-	root := t.TempDir()
-	writeCatalogInputFile(t, root, "etc/os-release", "ID=rhel\nVERSION_ID=10.2\n")
-	writeCatalogInputFile(t, root, "var/lib/rpm/Packages", "")
-
-	t.Run("matching primary still reads RPM inventory for multilib", func(t *testing.T) {
-		runner := &catalogInputCommandRunner{outputs: map[string][]byte{
-			"rpm": []byte("x86_64\ni686\nnoarch\n"),
-		}}
-		got, err := resolveCatalogInputsAtRoot(context.Background(), catalog.GenerateOptions{
-			Architecture: "x86_64", RepositoryIDs: []string{"manual-repo"}, OutputPath: "catalog.json", CommandRunner: runner,
-		}, root)
-		if err != nil {
-			t.Fatal(err)
-		}
-		if got.RHELVersion != "10" || got.Architecture != "x86_64" || !reflect.DeepEqual(got.RepositoryIDs, []string{"manual-repo"}) {
-			t.Fatalf("resolved inputs = %#v", got)
-		}
-		if !reflect.DeepEqual(got.DNF.Architectures, []string{"i686", "noarch", "x86_64"}) {
-			t.Fatalf("matching explicit architecture did not retain installed multilib: %v", got.DNF.Architectures)
-		}
-		wantCalls := [][]string{{"rpm", "--root=" + root, "--dbpath=/var/lib/rpm", "--query", "--all", "--queryformat=%{ARCH}\\n"}}
-		if !reflect.DeepEqual(runner.calls, wantCalls) {
-			t.Fatalf("explicit architecture discovery = %#v, want RPM inventory only %#v", runner.calls, wantCalls)
-		}
-	})
-
-	t.Run("explicit version and repositories", func(t *testing.T) {
-		runner := &catalogInputCommandRunner{outputs: map[string][]byte{"rpm": []byte("x86_64\ni686\n")}}
-		got, err := resolveCatalogInputsAtRoot(context.Background(), catalog.GenerateOptions{
-			RHELVersion: "9", RepositoryIDs: []string{"manual-repo"}, OutputPath: "catalog.json", CommandRunner: runner,
-		}, root)
-		if err != nil {
-			t.Fatal(err)
-		}
-		if got.RHELVersion != "9" || got.Architecture != "x86_64" || !reflect.DeepEqual(got.RepositoryIDs, []string{"manual-repo"}) {
-			t.Fatalf("resolved inputs = %#v", got)
-		}
-		if len(runner.calls) != 1 || runner.calls[0][0] != "rpm" {
-			t.Fatalf("version/repository overrides triggered unexpected discovery: %#v", runner.calls)
-		}
-	})
-}
-
-func TestResolveCatalogInputsExplicitArchitectureFiltersHostArchitectures(t *testing.T) {
-	root := t.TempDir()
-	writeCatalogInputFile(t, root, "var/lib/rpm/Packages", "")
-
-	t.Run("same primary keeps installed multilib", func(t *testing.T) {
-		runner := &catalogInputCommandRunner{outputs: map[string][]byte{
-			"rpm": []byte("x86_64\ni686\nnoarch\n"),
-		}}
-		got, err := resolveCatalogInputsAtRoot(context.Background(), catalog.GenerateOptions{
-			RHELVersion: "10", Architecture: "x86_64", RepositoryIDs: []string{"manual-repo"},
-			OutputPath: "catalog.json", CommandRunner: runner,
-		}, root)
-		if err != nil {
-			t.Fatal(err)
-		}
-		wantArchitectures := []string{"i686", "noarch", "x86_64"}
-		if !reflect.DeepEqual(got.DNF.Architectures, wantArchitectures) {
-			t.Fatalf("same-primary package architectures = %v, want %v", got.DNF.Architectures, wantArchitectures)
-		}
-		if len(runner.calls) != 1 || runner.calls[0][0] != "rpm" {
-			t.Fatalf("same-primary resolution did not detect installed architectures: %#v", runner.calls)
-		}
-	})
-
-	t.Run("different primary drops installed multilib", func(t *testing.T) {
-		runner := &catalogInputCommandRunner{outputs: map[string][]byte{
-			"rpm": []byte("x86_64\ni686\nnoarch\n"),
-		}}
-		got, err := resolveCatalogInputsAtRoot(context.Background(), catalog.GenerateOptions{
-			RHELVersion: "10", Architecture: "aarch64", RepositoryIDs: []string{"manual-repo"},
-			OutputPath: "catalog.json", CommandRunner: runner,
-		}, root)
-		if err != nil {
-			t.Fatal(err)
-		}
-		wantArchitectures := []string{"aarch64", "noarch"}
-		if !reflect.DeepEqual(got.DNF.Architectures, wantArchitectures) {
-			t.Fatalf("cross-primary package architectures = %v, want %v", got.DNF.Architectures, wantArchitectures)
-		}
-		if len(runner.calls) != 1 || runner.calls[0][0] != "rpm" {
-			t.Fatalf("cross-primary resolution did not detect installed architectures: %#v", runner.calls)
-		}
-	})
-}
-
 func TestResolveCatalogInputsRequiresOutput(t *testing.T) {
 	runner := &catalogInputCommandRunner{}
 	_, err := resolveCatalogInputsAtRoot(context.Background(), catalog.GenerateOptions{
-		RHELVersion: "10", Architecture: "x86_64", RepositoryIDs: []string{"manual-repo"}, CommandRunner: runner,
+		CommandRunner: runner,
 	}, "/")
 	if err == nil || !strings.Contains(err.Error(), "required") {
 		t.Fatalf("missing output error = %v", err)
