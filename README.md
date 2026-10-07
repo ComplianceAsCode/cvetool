@@ -1,5 +1,3 @@
-[![badge](https://github.com/quay/claircore/workflows/CI/badge.svg)](https://github.com/ComplianceAsCode/cvetool)
-
 # CVE Tool
 
 A [Claircore](https://github.com/quay/claircore)-based CVE manager (see also [clair-action](https://github.com/quay/clair-action/)).
