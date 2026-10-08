@@ -17,3 +17,9 @@ expression = "blessing"
 path = "vendor/go.yaml.in/yaml/v3/LICENSE"
 sha256sum = "d18f6323b71b0b768bb5e9616e36da390fbd39369a81807cca352de4e4e6aa0b"
 expression = "MIT AND Apache-2.0"
+
+[[licensing.licenses]]
+path = "vendor/modernc.org/sqlite/LICENSE-3RD-PARTY.md"
+sha256sum = "b4366b9c27a9364633e015011a231913ed19bf1228f335bf617e50a6f7b168a6"
+expression = "MIT AND BSD-3-Clause AND blessing"
+
