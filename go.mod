@@ -9,7 +9,7 @@ require (
 	github.com/google/uuid v1.6.0
 	github.com/hashicorp/go-version v1.9.0
 	github.com/klauspost/compress v1.20.1
-	github.com/quay/claircore v1.6.1-0.20260921221434-4b16410062d2
+	github.com/quay/claircore v1.6.1
 	github.com/quay/claircore/toolkit v1.7.0
 	github.com/quay/zlog v1.1.9
 	github.com/remind101/migrate v0.0.0-20170729031349-52c1edff7319
