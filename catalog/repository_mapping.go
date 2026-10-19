@@ -11,6 +11,7 @@ import (
 	"net/http"
 	"os"
 	"sort"
+	"strings"
 )
 
 const defaultRepositoryMappingURL = "https://access.redhat.com/security/data/metrics/repository-to-cpe.json"
@@ -39,6 +40,91 @@ func (m RepositoryMapping) Validate(repositoryID string) error {
 		}
 	}
 	return nil
+}
+
+func (m RepositoryMapping) forRHELRelease(repositoryIDs []string, releaseVersion string) (RepositoryMapping, error) {
+	filtered := RepositoryMapping{
+		data:   make(map[string][]string, len(repositoryIDs)),
+		source: m.source,
+	}
+	for _, repositoryID := range repositoryIDs {
+		cpes, ok := m.Lookup(repositoryID)
+		if !ok {
+			continue
+		}
+		selected, err := cpesForRHELRelease(repositoryID, cpes, releaseVersion)
+		if err != nil {
+			return RepositoryMapping{}, err
+		}
+		filtered.data[repositoryID] = selected
+	}
+	return filtered, nil
+}
+
+func cpesForRHELRelease(repositoryID string, cpes []string, releaseVersion string) ([]string, error) {
+	targetReleaseVersion := strings.TrimSpace(releaseVersion)
+	releaseVersion = rhelCPEVersion(targetReleaseVersion)
+	targetCPEVersion := ""
+	if releaseVersion != "" {
+		target, err := cpe.Unbind("cpe:/o:redhat:rhel_eus:" + releaseVersion)
+		if err != nil {
+			return nil, fmt.Errorf("invalid target RHEL release %q: %w", releaseVersion, err)
+		}
+		targetCPEVersion = target.Attr[cpe.Version].V
+	}
+	selectedEUS := make([]string, 0, len(cpes))
+	hasEUSCPE := false
+	for _, value := range cpes {
+		wfn, err := cpe.Unbind(value)
+		if err != nil {
+			return nil, fmt.Errorf("repository %q has invalid CPE %q: %w", repositoryID, value, err)
+		}
+		product := wfn.Attr[cpe.Product]
+		version := wfn.Attr[cpe.Version]
+		if product.Kind == cpe.ValueSet && product.V == "rhel_eus" {
+			hasEUSCPE = true
+			if releaseVersion == "" {
+				if targetReleaseVersion == "" {
+					return nil, fmt.Errorf("target RHEL release is required to select a CPE for EUS repository %q", repositoryID)
+				}
+				return nil, fmt.Errorf("target RHEL release %q must include a numeric major.minor version to select a CPE for EUS repository %q", targetReleaseVersion, repositoryID)
+			}
+			if version.Kind == cpe.ValueSet && version.V == targetCPEVersion {
+				selectedEUS = append(selectedEUS, value)
+			}
+		}
+	}
+	if !hasEUSCPE {
+		if isRHELEUSRepositoryID(repositoryID) {
+			return nil, fmt.Errorf("EUS repository %q has no EUS CPE in the repository mapping", repositoryID)
+		}
+		return cpes, nil
+	}
+	if len(selectedEUS) == 0 {
+		return nil, fmt.Errorf("repository %q has no EUS CPE for target release %q", repositoryID, releaseVersion)
+	}
+	return selectedEUS, nil
+}
+
+func isRHELEUSRepositoryID(repositoryID string) bool {
+	if !strings.HasPrefix(repositoryID, "rhel-") {
+		return false
+	}
+
+	majorAndRest := strings.TrimPrefix(repositoryID, "rhel-")
+	major, rest, ok := strings.Cut(majorAndRest, "-")
+	if !ok || !allASCIIDigits(major) || strings.Contains(rest, "-extended-eus-") {
+		return false
+	}
+	return strings.Contains(rest, "-eus-")
+}
+
+func rhelCPEVersion(releaseVersion string) string {
+	parts := strings.Split(strings.TrimSpace(releaseVersion), ".")
+	if len(parts) < 2 || !allASCIIDigits(parts[0]) || !allASCIIDigits(parts[1]) {
+		return ""
+	}
+	return parts[0] + "." + parts[1]
 }
 
 func (m RepositoryMapping) Fingerprint(repositoryIDs []string) string {

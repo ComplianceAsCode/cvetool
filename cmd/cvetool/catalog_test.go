@@ -49,6 +49,7 @@ func TestCatalogCommandRequiresOutput(t *testing.T) {
 func TestResolveCatalogInputsInfersHostValuesAndSkipsUnmappedRepositories(t *testing.T) {
 	root := t.TempDir()
 	writeCatalogInputFile(t, root, "etc/os-release", "ID=rhel\nVERSION_ID=10.2\n")
+	writeCatalogInputFile(t, root, "etc/dnf/vars/releasever", "10.4\n")
 	writeCatalogInputFile(t, root, "var/lib/rpm/Packages", "")
 	mappingPath := filepath.Join(t.TempDir(), "mapping.json")
 	if err := os.WriteFile(mappingPath, []byte(`{"data":{"mapped-repo":{"cpes":["cpe:/o:redhat:enterprise_linux:10"]}}}`), 0o600); err != nil {
@@ -66,7 +67,7 @@ func TestResolveCatalogInputsInfersHostValuesAndSkipsUnmappedRepositories(t *tes
 	if err != nil {
 		t.Fatal(err)
 	}
-	if got.RHELVersion != "10" || got.Architecture != "x86_64" || !reflect.DeepEqual(got.RepositoryIDs, []string{"mapped-repo"}) {
+	if got.RHELVersion != "10" || got.TargetReleaseVersion != "10.4" || got.Architecture != "x86_64" || !reflect.DeepEqual(got.RepositoryIDs, []string{"mapped-repo"}) {
 		t.Fatalf("inferred inputs = %#v", got)
 	}
 	if !reflect.DeepEqual(got.DNF.Architectures, []string{"i686", "noarch", "x86_64"}) {

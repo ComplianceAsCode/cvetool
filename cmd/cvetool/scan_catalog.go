@@ -205,14 +205,15 @@ func prepareScanCatalog(ctx context.Context, options scanCatalogOptions) (result
 		}
 		catalogPath := filepath.Join(prepared.tempDir, "catalog.json")
 		if err := catalog.Generate(ctx, catalog.GenerateOptions{
-			RHELVersion:   options.TargetInfo.RHELVersion,
-			Architecture:  options.TargetInfo.Architecture,
-			RepositoryIDs: selection.Mapped,
-			OutputPath:    catalogPath,
-			MappingFile:   options.MappingFile,
-			MappingURL:    options.MappingURL,
-			DNF:           dnf,
-			CommandRunner: options.Runner,
+			RHELVersion:          options.TargetInfo.RHELVersion,
+			TargetReleaseVersion: options.TargetInfo.ReleaseVersion,
+			Architecture:         options.TargetInfo.Architecture,
+			RepositoryIDs:        selection.Mapped,
+			OutputPath:           catalogPath,
+			MappingFile:          options.MappingFile,
+			MappingURL:           options.MappingURL,
+			DNF:                  dnf,
+			CommandRunner:        options.Runner,
 		}); err != nil {
 			return nil, fmt.Errorf("generate target catalog: %w", err)
 		}

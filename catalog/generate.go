@@ -13,15 +13,17 @@ import (
 )
 
 type GenerateOptions struct {
-	RHELVersion   string
-	Architecture  string
-	RepositoryIDs []string
-	OutputPath    string
-	MappingFile   string
-	MappingURL    string
-	DNFPath       string
-	DNF           DNFOptions
-	CommandRunner CommandRunner
+	RHELVersion string
+	// TargetReleaseVersion selects the version-specific EUS CPE for this catalog.
+	TargetReleaseVersion string
+	Architecture         string
+	RepositoryIDs        []string
+	OutputPath           string
+	MappingFile          string
+	MappingURL           string
+	DNFPath              string
+	DNF                  DNFOptions
+	CommandRunner        CommandRunner
 }
 
 func Generate(ctx context.Context, options GenerateOptions) error {
@@ -34,6 +36,10 @@ func Generate(ctx context.Context, options GenerateOptions) error {
 	ids := append([]string(nil), options.RepositoryIDs...)
 	sort.Strings(ids)
 	mapping, err := LoadRepositoryMapping(ctx, options.MappingFile, options.MappingURL)
+	if err != nil {
+		return err
+	}
+	mapping, err = mapping.forRHELRelease(ids, options.TargetReleaseVersion)
 	if err != nil {
 		return err
 	}
