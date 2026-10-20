@@ -17,8 +17,9 @@ import (
 const defaultRepositoryMappingURL = "https://access.redhat.com/security/data/metrics/repository-to-cpe.json"
 
 type RepositoryMapping struct {
-	data   map[string][]string
-	source string
+	data             map[string][]string
+	repoRelativeURLs map[string][]string
+	source           string
 }
 
 func (m RepositoryMapping) Lookup(repositoryID string) ([]string, bool) {
@@ -42,7 +43,7 @@ func (m RepositoryMapping) Validate(repositoryID string) error {
 	return nil
 }
 
-func (m RepositoryMapping) forRHELRelease(repositoryIDs []string, releaseVersion string) (RepositoryMapping, error) {
+func (m RepositoryMapping) forRHELRelease(repositoryIDs []string, releaseVersion, architecture string) (RepositoryMapping, error) {
 	filtered := RepositoryMapping{
 		data:   make(map[string][]string, len(repositoryIDs)),
 		source: m.source,
@@ -52,7 +53,7 @@ func (m RepositoryMapping) forRHELRelease(repositoryIDs []string, releaseVersion
 		if !ok {
 			continue
 		}
-		selected, err := cpesForRHELRelease(repositoryID, cpes, releaseVersion)
+		selected, err := m.cpesForRHELRelease(repositoryID, cpes, releaseVersion, architecture)
 		if err != nil {
 			return RepositoryMapping{}, err
 		}
@@ -61,49 +62,68 @@ func (m RepositoryMapping) forRHELRelease(repositoryIDs []string, releaseVersion
 	return filtered, nil
 }
 
-func cpesForRHELRelease(repositoryID string, cpes []string, releaseVersion string) ([]string, error) {
+// cpesForRHELRelease prefers Red Hat's version-suffixed repository entry.
+// Aggregate rows can include CPEs for other release minors and streams.
+func (m RepositoryMapping) cpesForRHELRelease(repositoryID string, cpes []string, releaseVersion, architecture string) ([]string, error) {
 	targetReleaseVersion := strings.TrimSpace(releaseVersion)
-	releaseVersion = rhelCPEVersion(targetReleaseVersion)
-	targetCPEVersion := ""
-	if releaseVersion != "" {
-		target, err := cpe.Unbind("cpe:/o:redhat:rhel_eus:" + releaseVersion)
-		if err != nil {
-			return nil, fmt.Errorf("invalid target RHEL release %q: %w", releaseVersion, err)
-		}
-		targetCPEVersion = target.Attr[cpe.Version].V
-	}
-	selectedEUS := make([]string, 0, len(cpes))
-	hasEUSCPE := false
-	for _, value := range cpes {
-		wfn, err := cpe.Unbind(value)
-		if err != nil {
-			return nil, fmt.Errorf("repository %q has invalid CPE %q: %w", repositoryID, value, err)
-		}
-		product := wfn.Attr[cpe.Product]
-		version := wfn.Attr[cpe.Version]
-		if product.Kind == cpe.ValueSet && product.V == "rhel_eus" {
-			hasEUSCPE = true
-			if releaseVersion == "" {
-				if targetReleaseVersion == "" {
-					return nil, fmt.Errorf("target RHEL release is required to select a CPE for EUS repository %q", repositoryID)
-				}
-				return nil, fmt.Errorf("target RHEL release %q must include a numeric major.minor version to select a CPE for EUS repository %q", targetReleaseVersion, repositoryID)
-			}
-			if version.Kind == cpe.ValueSet && version.V == targetCPEVersion {
-				selectedEUS = append(selectedEUS, value)
-			}
-		}
-	}
-	if !hasEUSCPE {
-		if isRHELEUSRepositoryID(repositoryID) {
-			return nil, fmt.Errorf("EUS repository %q has no EUS CPE in the repository mapping", repositoryID)
-		}
+	targetCPEVersion := rhelCPEVersion(targetReleaseVersion)
+	if !m.requiresRHELReleaseSpecificMapping(repositoryID) {
 		return cpes, nil
 	}
-	if len(selectedEUS) == 0 {
-		return nil, fmt.Errorf("repository %q has no EUS CPE for target release %q", repositoryID, releaseVersion)
+	if targetCPEVersion != "" {
+		versionSpecificID := repositoryID + "__" + strings.ReplaceAll(targetCPEVersion, ".", "_DOT_")
+		if architecture != "" {
+			if selected, ok := m.Lookup(versionSpecificID + "__" + architecture); ok {
+				return selected, nil
+			}
+		}
+		if selected, ok := m.Lookup(versionSpecificID); ok {
+			return selected, nil
+		}
 	}
-	return selectedEUS, nil
+
+	if targetCPEVersion == "" {
+		if targetReleaseVersion == "" {
+			return nil, fmt.Errorf("target RHEL release is required to select a CPE for repository %q", repositoryID)
+		}
+		return nil, fmt.Errorf("target RHEL release %q must include a numeric major.minor version to select a CPE for repository %q", targetReleaseVersion, repositoryID)
+	}
+	return nil, fmt.Errorf("repository %q has no version-specific CPE mapping for target release %q", repositoryID, targetCPEVersion)
+}
+
+func (m RepositoryMapping) requiresRHELReleaseSpecificMapping(repositoryID string) bool {
+	if isRHELEUSRepositoryID(repositoryID) || hasRHELMinorRepositoryURL(m.repoRelativeURLs[repositoryID]) {
+		return true
+	}
+	prefix := repositoryID + "__"
+	for id := range m.data {
+		if strings.HasPrefix(id, prefix) {
+			return true
+		}
+	}
+	return false
+}
+
+func hasRHELMinorRepositoryURL(urls []string) bool {
+	for _, repositoryURL := range urls {
+		parts := strings.Split(strings.Trim(repositoryURL, "/"), "/")
+		if len(parts) < 4 || parts[0] != "content" || parts[1] == "dist" {
+			continue
+		}
+		major := strings.TrimPrefix(parts[2], "rhel")
+		if !allASCIIDigits(major) {
+			continue
+		}
+		version := parts[3]
+		if rhelCPEVersion(version) != version {
+			continue
+		}
+		versionMajor, _, _ := strings.Cut(version, ".")
+		if versionMajor == major {
+			return true
+		}
+	}
+	return false
 }
 
 func isRHELEUSRepositoryID(repositoryID string) bool {
@@ -176,15 +196,21 @@ func LoadRepositoryMapping(ctx context.Context, file, url string) (RepositoryMap
 	}
 	var payload struct {
 		Data map[string]struct {
-			CPEs []string `json:"cpes"`
+			CPEs             []string `json:"cpes"`
+			RepoRelativeURLs []string `json:"repo_relative_urls"`
 		} `json:"data"`
 	}
 	if err := json.Unmarshal(data, &payload); err != nil {
 		return RepositoryMapping{}, fmt.Errorf("decode repository mapping JSON: %w", err)
 	}
-	mapping := RepositoryMapping{data: make(map[string][]string), source: source}
+	mapping := RepositoryMapping{
+		data:             make(map[string][]string),
+		repoRelativeURLs: make(map[string][]string),
+		source:           source,
+	}
 	for id, repository := range payload.Data {
 		mapping.data[id] = append([]string(nil), repository.CPEs...)
+		mapping.repoRelativeURLs[id] = append([]string(nil), repository.RepoRelativeURLs...)
 	}
 	return mapping, nil
 }

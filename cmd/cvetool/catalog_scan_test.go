@@ -103,7 +103,11 @@ func TestAutoCatalogUsesReleaseOverrideForEUSCPESelection(t *testing.T) {
 		t.Fatal(err)
 	}
 	mappingPath := filepath.Join(t.TempDir(), "mapping.json")
-	mapping := `{"data":{"rhel-9-for-x86_64-baseos-eus-rpms":{"cpes":["cpe:/o:redhat:rhel_eus:9.4::baseos","cpe:/o:redhat:rhel_eus:9.6::baseos"]}}}`
+	mapping := `{"data":{
+		"rhel-9-for-x86_64-baseos-eus-rpms":{"cpes":["cpe:/o:redhat:rhel_eus:9.4::baseos","cpe:/o:redhat:rhel_eus:9.6::baseos"]},
+		"rhel-9-for-x86_64-baseos-eus-rpms__9_DOT_4":{"cpes":["cpe:/o:redhat:rhel_eus:9.4::baseos"]},
+		"rhel-9-for-x86_64-baseos-eus-rpms__9_DOT_6":{"cpes":["cpe:/o:redhat:rhel_eus:9.6::baseos"]}
+	}}`
 	if err := os.WriteFile(mappingPath, []byte(mapping), 0o600); err != nil {
 		t.Fatal(err)
 	}
@@ -866,7 +870,13 @@ func writeScanCatalogEUSMapping(t *testing.T) string {
 		"cpe:/o:redhat:rhel_eus:9.4::baseos",
 		"cpe:/o:redhat:rhel_eus:9.6::baseos",
 		"cpe:/o:redhat:rhel_eus:9.8::baseos"
-	]}}}`), 0o600); err != nil {
+	]},
+	"rhel-9-for-x86_64-baseos-eus-rpms__9_DOT_0":{"cpes":["cpe:/o:redhat:rhel_eus:9.0::baseos"]},
+	"rhel-9-for-x86_64-baseos-eus-rpms__9_DOT_2":{"cpes":["cpe:/o:redhat:rhel_eus:9.2::baseos"]},
+	"rhel-9-for-x86_64-baseos-eus-rpms__9_DOT_4":{"cpes":["cpe:/o:redhat:rhel_eus:9.4::baseos"]},
+	"rhel-9-for-x86_64-baseos-eus-rpms__9_DOT_6":{"cpes":["cpe:/o:redhat:rhel_eus:9.6::baseos"]},
+	"rhel-9-for-x86_64-baseos-eus-rpms__9_DOT_8":{"cpes":["cpe:/o:redhat:rhel_eus:9.8::baseos"]}
+	}}`), 0o600); err != nil {
 		t.Fatal(err)
 	}
 	return path

@@ -14,7 +14,7 @@ import (
 
 type GenerateOptions struct {
 	RHELVersion string
-	// TargetReleaseVersion selects the version-specific EUS CPE for this catalog.
+	// TargetReleaseVersion selects the version-specific CPE mapping for this catalog.
 	TargetReleaseVersion string
 	Architecture         string
 	RepositoryIDs        []string
@@ -39,7 +39,7 @@ func Generate(ctx context.Context, options GenerateOptions) error {
 	if err != nil {
 		return err
 	}
-	mapping, err = mapping.forRHELRelease(ids, options.TargetReleaseVersion)
+	mapping, err = mapping.forRHELRelease(ids, options.TargetReleaseVersion, options.Architecture)
 	if err != nil {
 		return err
 	}

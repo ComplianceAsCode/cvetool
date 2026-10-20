@@ -98,7 +98,7 @@ func TestGenerateSelectsEUSCPEForTargetRelease(t *testing.T) {
 		"cpe:/o:redhat:rhel_eus:9.4::baseos",
 		"cpe:/o:redhat:rhel_eus:9.6::baseos",
 		"cpe:/o:redhat:rhel_eus:9.8::baseos"
-	]}}}`), 0o600); err != nil {
+	]},"eus-baseos__9_DOT_4":{"cpes":["cpe:/o:redhat:rhel_eus:9.4::baseos"]}}}`), 0o600); err != nil {
 		t.Fatal(err)
 	}
 	runner := &fakeCommandRunner{output: []byte("bash\t0\t5.1.8\t6.el9_4\tx86_64\n")}
@@ -130,6 +130,45 @@ func TestGenerateSelectsEUSCPEForTargetRelease(t *testing.T) {
 	}
 }
 
+func TestGenerateUsesArchitectureSpecificVersionEntry(t *testing.T) {
+	dir := t.TempDir()
+	repositoryID := "rhel-7-server-e4s-rpms"
+	mappingPath := filepath.Join(dir, "mapping.json")
+	if err := os.WriteFile(mappingPath, []byte(`{"data":{
+		"rhel-7-server-e4s-rpms":{"cpes":[
+			"cpe:/o:redhat:rhel_e4s:7.4::baseos",
+			"cpe:/o:redhat:rhel_eus:7.4::baseos"
+		],"repo_relative_urls":["content/e4s/rhel7/7.4/x86_64/baseos/os"]},
+		"rhel-7-server-e4s-rpms__7_DOT_4__x86_64":{"cpes":["cpe:/o:redhat:rhel_e4s:7.4::baseos"]}
+	}}`), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	runner := &fakeCommandRunner{output: []byte("bash\t0\t4.2.46\t35.el7_4\tx86_64\n")}
+	output := filepath.Join(dir, "catalog.json")
+	err := Generate(context.Background(), GenerateOptions{
+		RHELVersion: "7", TargetReleaseVersion: "7.4", Architecture: "x86_64",
+		RepositoryIDs: []string{repositoryID}, OutputPath: output, MappingFile: mappingPath, CommandRunner: runner,
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	reader, err := OpenJSONReader(output)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer reader.Close()
+	matches, err := reader.Lookup(context.Background(), NEVRA{
+		Name: "bash", Epoch: "0", Version: "4.2.46", Release: "35.el7_4", Arch: "x86_64",
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	want := Match{RepositoryID: repositoryID, CPE: "cpe:/o:redhat:rhel_e4s:7.4::baseos"}
+	if len(matches) != 1 || matches[0] != want {
+		t.Fatalf("target 7.4 package CPE matches = %#v, want only %#v", matches, want)
+	}
+}
+
 func TestGenerateRejectsEUSMappingWithoutTargetReleaseCPE(t *testing.T) {
 	dir := t.TempDir()
 	mappingPath := filepath.Join(dir, "mapping.json")
@@ -140,7 +179,7 @@ func TestGenerateRejectsEUSMappingWithoutTargetReleaseCPE(t *testing.T) {
 		"cpe:/o:redhat:rhel_eus:9.4::baseos",
 		"cpe:/o:redhat:rhel_eus:9.6::baseos",
 		"cpe:/o:redhat:rhel_eus:9.8::baseos"
-	]}}}`), 0o600); err != nil {
+	]},"eus-baseos__9_DOT_4":{"cpes":["cpe:/o:redhat:rhel_eus:9.4::baseos"]},"eus-baseos__9_DOT_6":{"cpes":["cpe:/o:redhat:rhel_eus:9.6::baseos"]}}}`), 0o600); err != nil {
 		t.Fatal(err)
 	}
 	runner := &fakeCommandRunner{output: []byte("bash\t0\t5.1.8\t6.el9_7\tx86_64\n")}
@@ -163,14 +202,15 @@ func TestGenerateRejectsEUSMappingWithoutTargetReleaseCPE(t *testing.T) {
 func TestGenerateRejectsUnqualifiedEUSCPEForMinorTarget(t *testing.T) {
 	dir := t.TempDir()
 	mappingPath := filepath.Join(dir, "mapping.json")
-	if err := os.WriteFile(mappingPath, []byte(`{"data":{"eus-baseos":{"cpes":["cpe:/o:redhat:rhel_eus:9::baseos"]}}}`), 0o600); err != nil {
+	repositoryID := "rhel-9-for-x86_64-baseos-eus-rpms"
+	if err := os.WriteFile(mappingPath, []byte(`{"data":{"rhel-9-for-x86_64-baseos-eus-rpms":{"cpes":["cpe:/o:redhat:rhel_eus:9::baseos"]}}}`), 0o600); err != nil {
 		t.Fatal(err)
 	}
 	runner := &fakeCommandRunner{output: []byte("bash\t0\t5.1.8\t6.el9_4\tx86_64\n")}
 	output := filepath.Join(dir, "catalog.json")
 	err := Generate(context.Background(), GenerateOptions{
 		RHELVersion: "9", TargetReleaseVersion: "9.4", Architecture: "x86_64",
-		RepositoryIDs: []string{"eus-baseos"}, OutputPath: output, MappingFile: mappingPath, CommandRunner: runner,
+		RepositoryIDs: []string{repositoryID}, OutputPath: output, MappingFile: mappingPath, CommandRunner: runner,
 	})
 	if err == nil {
 		t.Fatal("Generate accepted a major-only EUS CPE for a minor target")
@@ -228,13 +268,16 @@ func TestGenerateRejectsMajorOnlyTargetReleaseForEUSCPE(t *testing.T) {
 	}
 }
 
-func TestCPESForRHELReleaseLeavesNonEUSRepositoryUnchanged(t *testing.T) {
+func TestRepositoryMappingLeavesNonEUSRepositoryUnchanged(t *testing.T) {
+	repositoryID := "rhel-9-for-x86_64-baseos-rpms"
 	cpes := []string{"cpe:/o:redhat:enterprise_linux:9::baseos"}
-	got, err := cpesForRHELRelease("rhel-9-for-x86_64-baseos-rpms", cpes, "9")
+	mapping := RepositoryMapping{data: map[string][]string{repositoryID: cpes}}
+	filtered, err := mapping.forRHELRelease([]string{repositoryID}, "9.4", "x86_64")
 	if err != nil {
 		t.Fatal(err)
 	}
-	if !reflect.DeepEqual(got, cpes) {
+	got, ok := filtered.Lookup(repositoryID)
+	if !ok || !reflect.DeepEqual(got, cpes) {
 		t.Fatalf("non-EUS repository CPEs = %#v, want unchanged %#v", got, cpes)
 	}
 }
