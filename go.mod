@@ -8,7 +8,7 @@ require (
 	github.com/google/go-containerregistry v0.22.1
 	github.com/google/uuid v1.6.0
 	github.com/hashicorp/go-version v1.9.0
-	github.com/klauspost/compress v1.20.1
+	github.com/klauspost/compress v1.20.3
 	github.com/quay/claircore v1.6.1
 	github.com/quay/claircore/toolkit v1.7.0
 	github.com/quay/zlog v1.1.9
