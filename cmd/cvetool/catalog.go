@@ -87,7 +87,12 @@ func resolveCatalogInputsAtRoot(ctx context.Context, options catalog.GenerateOpt
 	if err != nil {
 		return catalog.GenerateOptions{}, fmt.Errorf("resolve host RHEL version: %w", err)
 	}
+	releaseVersion, err := catalog.ResolveTargetReleaseVersion(root, targetInfo.ReleaseVersion)
+	if err != nil {
+		return catalog.GenerateOptions{}, fmt.Errorf("resolve host RHEL release version: %w", err)
+	}
 	options.RHELVersion = targetInfo.RHELVersion
+	options.TargetReleaseVersion = releaseVersion
 
 	enabled, err := catalog.EnabledHostRepositories(ctx, options.CommandRunner, dnfPath)
 	if err != nil {

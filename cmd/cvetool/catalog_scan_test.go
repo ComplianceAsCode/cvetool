@@ -63,6 +63,79 @@ func TestAutoCatalogSourceRootPath(t *testing.T) {
 	}
 }
 
+func TestAutoCatalogSelectsTargetEUSCPE(t *testing.T) {
+	root := t.TempDir()
+	writeScanCatalogTarget(t, root, "rhel", "9.4")
+	runner := &scanCatalogRunner{enabledOutput: []byte(
+		"repo id repo name\nrhel-9-for-x86_64-baseos-eus-rpms BaseOS EUS\nrepolist: 1\n",
+	)}
+	prepared, err := prepareScanCatalogForSource(context.Background(), scanCatalogOptions{
+		TargetRoot:  root,
+		MappingFile: writeScanCatalogEUSMapping(t),
+		Runner:      runner,
+	}, "", "")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if prepared == nil {
+		t.Fatal("RHEL target did not produce an automatic catalog")
+	}
+	defer prepared.Close()
+	matches, err := prepared.Reader.Lookup(context.Background(), catalog.NEVRA{
+		Name: "bash", Epoch: "0", Version: "5.1.8", Release: "6.el9", Arch: "x86_64",
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(matches) != 1 || matches[0] != (catalog.Match{
+		RepositoryID: "rhel-9-for-x86_64-baseos-eus-rpms",
+		CPE:          "cpe:/o:redhat:rhel_eus:9.4::baseos",
+	}) {
+		t.Fatalf("automatic catalog CPE matches = %#v, want only RHEL 9.4 EUS BaseOS", matches)
+	}
+}
+
+func TestAutoCatalogUsesReleaseOverrideForEUSCPESelection(t *testing.T) {
+	root := t.TempDir()
+	writeScanCatalogTarget(t, root, "rhel", "9.4")
+	releasePath := filepath.Join(root, "etc", "dnf", "vars", "releasever")
+	if err := os.WriteFile(releasePath, []byte("9.6\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	mappingPath := filepath.Join(t.TempDir(), "mapping.json")
+	mapping := `{"data":{
+		"rhel-9-for-x86_64-baseos-eus-rpms":{"cpes":["cpe:/o:redhat:rhel_eus:9.4::baseos","cpe:/o:redhat:rhel_eus:9.6::baseos"]},
+		"rhel-9-for-x86_64-baseos-eus-rpms__9_DOT_4":{"cpes":["cpe:/o:redhat:rhel_eus:9.4::baseos"]},
+		"rhel-9-for-x86_64-baseos-eus-rpms__9_DOT_6":{"cpes":["cpe:/o:redhat:rhel_eus:9.6::baseos"]}
+	}}`
+	if err := os.WriteFile(mappingPath, []byte(mapping), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	runner := &scanCatalogRunner{enabledOutput: []byte("repo id repo name\nrhel-9-for-x86_64-baseos-eus-rpms BaseOS EUS\nrepolist: 1\n")}
+	prepared, err := prepareScanCatalogForSource(context.Background(), scanCatalogOptions{
+		TargetRoot: root, MappingFile: mappingPath, Runner: runner,
+	}, "", "")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if prepared == nil {
+		t.Fatal("RHEL target did not produce an automatic catalog")
+	}
+	defer prepared.Close()
+	matches, err := prepared.Reader.Lookup(context.Background(), catalog.NEVRA{
+		Name: "bash", Epoch: "0", Version: "5.1.8", Release: "6.el9", Arch: "x86_64",
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(matches) != 1 || matches[0] != (catalog.Match{
+		RepositoryID: "rhel-9-for-x86_64-baseos-eus-rpms",
+		CPE:          "cpe:/o:redhat:rhel_eus:9.6::baseos",
+	}) {
+		t.Fatalf("release override CPE matches = %#v, want only RHEL 9.6 EUS BaseOS", matches)
+	}
+}
+
 func TestAutoCatalogSourceImagePathWithoutCatalog(t *testing.T) {
 	runner := &scanCatalogRunner{}
 	prepared, err := prepareScanCatalogForSource(context.Background(), scanCatalogOptions{
@@ -783,6 +856,27 @@ func writeScanCatalogMapping(t *testing.T) string {
 	t.Helper()
 	path := filepath.Join(t.TempDir(), "mapping.json")
 	if err := os.WriteFile(path, []byte(`{"data":{"rhel-9-for-x86_64-baseos-rpms":{"cpes":["cpe:/o:redhat:enterprise_linux:9::baseos"]}}}`), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	return path
+}
+
+func writeScanCatalogEUSMapping(t *testing.T) string {
+	t.Helper()
+	path := filepath.Join(t.TempDir(), "mapping.json")
+	if err := os.WriteFile(path, []byte(`{"data":{"rhel-9-for-x86_64-baseos-eus-rpms":{"cpes":[
+		"cpe:/o:redhat:rhel_eus:9.0::baseos",
+		"cpe:/o:redhat:rhel_eus:9.2::baseos",
+		"cpe:/o:redhat:rhel_eus:9.4::baseos",
+		"cpe:/o:redhat:rhel_eus:9.6::baseos",
+		"cpe:/o:redhat:rhel_eus:9.8::baseos"
+	]},
+	"rhel-9-for-x86_64-baseos-eus-rpms__9_DOT_0":{"cpes":["cpe:/o:redhat:rhel_eus:9.0::baseos"]},
+	"rhel-9-for-x86_64-baseos-eus-rpms__9_DOT_2":{"cpes":["cpe:/o:redhat:rhel_eus:9.2::baseos"]},
+	"rhel-9-for-x86_64-baseos-eus-rpms__9_DOT_4":{"cpes":["cpe:/o:redhat:rhel_eus:9.4::baseos"]},
+	"rhel-9-for-x86_64-baseos-eus-rpms__9_DOT_6":{"cpes":["cpe:/o:redhat:rhel_eus:9.6::baseos"]},
+	"rhel-9-for-x86_64-baseos-eus-rpms__9_DOT_8":{"cpes":["cpe:/o:redhat:rhel_eus:9.8::baseos"]}
+	}}`), 0o600); err != nil {
 		t.Fatal(err)
 	}
 	return path
