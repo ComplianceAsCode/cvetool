@@ -9,7 +9,7 @@ import (
 	"os"
 	"time"
 
-	ds_sqlite "github.com/ComplianceAsCode/cvetool/datastore/sqlite"
+	ds_sqlite "github.com/ComplianceAsCode/veseer/datastore/sqlite"
 	"github.com/quay/claircore"
 	"github.com/quay/claircore/toolkit/types"
 )
