@@ -1,6 +1,6 @@
-upstream_package_name: cvetool
-downstream_package_name: cvetool
-specfile_path: cvetool.spec
+upstream_package_name: veseer
+downstream_package_name: veseer
+specfile_path: veseer.spec
 upstream_tag_template: v{version}
 
 jobs:
@@ -16,7 +16,7 @@ jobs:
       - go-vendor-tools
     actions:
       fix-spec-file:
-        - go_vendor_archive create cvetool.spec
+        - go_vendor_archive create veseer.spec
 
   - <<: *fedora
     trigger: commit
@@ -43,7 +43,7 @@ jobs:
         - go mod tidy
         - go mod vendor
         # We wrap the tar command in bash -c so $PACKIT_PROJECT_VERSION is evaluated
-        - bash -c "tar -cjvf cvetool-${PACKIT_PROJECT_VERSION}-vendor.tar.bz2 vendor/"
+        - bash -c "tar -cjvf veseer-${PACKIT_PROJECT_VERSION}-vendor.tar.bz2 vendor/"
 
 
   - <<: *rhel
