@@ -9,7 +9,7 @@ import (
 	"path/filepath"
 	"strings"
 
-	"github.com/ComplianceAsCode/cvetool/catalog"
+	"github.com/ComplianceAsCode/veseer/catalog"
 	"github.com/quay/claircore/libindex"
 	"github.com/quay/claircore/rhel"
 	"github.com/quay/zlog"
@@ -163,7 +163,7 @@ func prepareScanCatalog(ctx context.Context, options scanCatalogOptions) (result
 		if err != nil {
 			return nil, fmt.Errorf("resolve target root: %w", err)
 		}
-		tempDir, err := os.MkdirTemp(os.TempDir(), "cvetool-scan-*")
+		tempDir, err := os.MkdirTemp(os.TempDir(), "veseer-scan-*")
 		if err != nil {
 			return nil, fmt.Errorf("create scan catalog directory: %w", err)
 		}

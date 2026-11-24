@@ -6,7 +6,7 @@ import (
 	"io"
 	"os"
 
-	"github.com/ComplianceAsCode/cvetool/output"
+	"github.com/ComplianceAsCode/veseer/output"
 	"github.com/quay/claircore"
 	"github.com/urfave/cli/v2"
 )

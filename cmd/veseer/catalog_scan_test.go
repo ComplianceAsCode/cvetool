@@ -12,7 +12,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/ComplianceAsCode/cvetool/catalog"
+	"github.com/ComplianceAsCode/veseer/catalog"
 	"github.com/quay/claircore"
 	"github.com/quay/claircore/libindex"
 	"github.com/quay/claircore/rhel"
@@ -232,7 +232,7 @@ func TestAutoCatalogRejectsRepoFileSymlinkEscapeBeforeDNF(t *testing.T) {
 	if err := os.WriteFile(outsideRepo, []byte("[host-repo]\nname=host repository\n"), 0o644); err != nil {
 		t.Fatal(err)
 	}
-	repoFile := filepath.Join(root, "etc", "cvetool", "repos.d", "host.repo")
+	repoFile := filepath.Join(root, "etc", "veseer", "repos.d", "host.repo")
 	if err := os.Symlink(outsideRepo, repoFile); err != nil {
 		t.Skipf("symlink unavailable: %v", err)
 	}
@@ -304,7 +304,7 @@ func TestAutoCatalogUsesTargetMetadataAndCleansTemporaryFiles(t *testing.T) {
 		joined := strings.Join(call, " ")
 		for _, want := range []string{
 			"--installroot=" + root,
-			"--setopt=reposdir=" + filepath.Join(root, "etc", "cvetool", "repos.d"),
+			"--setopt=reposdir=" + filepath.Join(root, "etc", "veseer", "repos.d"),
 			"--releasever=9.7",
 			"--forcearch=x86_64",
 		} {
@@ -736,7 +736,7 @@ func TestCatalogCloseJoinsMappingRemovalError(t *testing.T) {
 
 func TestCatalogAdvice(t *testing.T) {
 	advice := catalogAdvice(0, "")
-	if !strings.Contains(advice, "cvetool catalog") || !strings.Contains(advice, "--catalog-path <path>") {
+	if !strings.Contains(advice, "veseer catalog") || !strings.Contains(advice, "--catalog-path <path>") {
 		t.Fatalf("catalog advice = %q, want catalog command and scan flag", advice)
 	}
 }
@@ -886,7 +886,7 @@ func writeScanCatalogTarget(t *testing.T, root, id, version string) {
 	t.Helper()
 	files := map[string]string{
 		"etc/os-release":          "ID=" + id + "\nVERSION_ID=" + version + "\n",
-		"etc/dnf/dnf.conf":        "[main]\nreposdir=/etc/cvetool/repos.d\n",
+		"etc/dnf/dnf.conf":        "[main]\nreposdir=/etc/veseer/repos.d\n",
 		"etc/dnf/vars/releasever": version + "\n",
 		"var/lib/rpm/Packages":    "",
 	}
@@ -899,7 +899,7 @@ func writeScanCatalogTarget(t *testing.T, root, id, version string) {
 			t.Fatal(err)
 		}
 	}
-	if err := os.MkdirAll(filepath.Join(root, "etc", "cvetool", "repos.d"), 0o755); err != nil {
+	if err := os.MkdirAll(filepath.Join(root, "etc", "veseer", "repos.d"), 0o755); err != nil {
 		t.Fatal(err)
 	}
 }

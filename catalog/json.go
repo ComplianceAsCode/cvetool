@@ -132,7 +132,7 @@ func (r *jsonReader) RepositoryMappingFile() (string, func(), error) {
 			CPEs []string `json:"cpes"`
 		}{CPEs: cpes}
 	}
-	file, err := os.CreateTemp("", "cvetool-catalog-mapping-*.json")
+	file, err := os.CreateTemp("", "veseer-catalog-mapping-*.json")
 	if err != nil {
 		return "", func() {}, err
 	}

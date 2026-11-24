@@ -483,7 +483,7 @@ func TestQueryDNFWithOptionsRejectsTempRootForHostRoot(t *testing.T) {
 }
 
 func TestQueryDNFWithOptionsRejectsScratchOutsideTempForHostRoot(t *testing.T) {
-	scratchDir, err := os.MkdirTemp(".", ".cvetool-outside-temp-")
+	scratchDir, err := os.MkdirTemp(".", ".veseer-outside-temp-")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -507,7 +507,7 @@ func TestQueryDNFWithOptionsRejectsScratchOutsideTempForHostRoot(t *testing.T) {
 }
 
 func TestQueryDNFWithOptionsRejectsPermissiveScratchForHostRoot(t *testing.T) {
-	scratchDir, err := os.MkdirTemp(os.TempDir(), ".cvetool-permissive-scratch-")
+	scratchDir, err := os.MkdirTemp(os.TempDir(), ".veseer-permissive-scratch-")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -595,7 +595,7 @@ func TestValidateDNFScratchInfoRejectsForeignOwner(t *testing.T) {
 }
 
 func TestQueryDNFWithOptionsRejectsForeignOwnedScratchForHostRoot(t *testing.T) {
-	scratchDir, err := os.MkdirTemp(t.TempDir(), ".cvetool-foreign-owner-")
+	scratchDir, err := os.MkdirTemp(t.TempDir(), ".veseer-foreign-owner-")
 	if err != nil {
 		t.Fatal(err)
 	}

@@ -14,7 +14,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/ComplianceAsCode/cvetool/catalog"
+	"github.com/ComplianceAsCode/veseer/catalog"
 	"github.com/quay/claircore"
 	"github.com/quay/claircore/enricher/cvss"
 	"github.com/quay/claircore/indexer"
@@ -27,11 +27,11 @@ import (
 	"github.com/quay/zlog"
 	"github.com/urfave/cli/v2"
 
-	datastore "github.com/ComplianceAsCode/cvetool/datastore"
-	ds_sqlite "github.com/ComplianceAsCode/cvetool/datastore/sqlite"
-	image "github.com/ComplianceAsCode/cvetool/image"
-	output "github.com/ComplianceAsCode/cvetool/output"
-	"github.com/ComplianceAsCode/cvetool/util"
+	datastore "github.com/ComplianceAsCode/veseer/datastore"
+	ds_sqlite "github.com/ComplianceAsCode/veseer/datastore/sqlite"
+	image "github.com/ComplianceAsCode/veseer/image"
+	output "github.com/ComplianceAsCode/veseer/output"
+	"github.com/ComplianceAsCode/veseer/util"
 )
 
 type EnumValue struct {
@@ -45,7 +45,7 @@ func getDefaultDBPath() (string, error) {
 	if err != nil || homeFolder == "" {
 		return "", fmt.Errorf("home folder not set, DB path must be specified")
 	}
-	return filepath.Join(homeFolder, ".local", "share", "cvetool", "matcher.db"), nil
+	return filepath.Join(homeFolder, ".local", "share", "veseer", "matcher.db"), nil
 }
 
 func (e *EnumValue) Set(value string) error {
@@ -348,7 +348,7 @@ func catalogAdvice(vulnerabilityCount int, catalogPath string) string {
 	if vulnerabilityCount > 0 || catalogPath != "" {
 		return ""
 	}
-	return "No vulnerabilities found. For improved RHEL coverage, download a package catalog with `cvetool catalog` and rerun the scan with `--catalog-path <path>`."
+	return "No vulnerabilities found. For improved RHEL coverage, download a package catalog with `veseer catalog` and rerun the scan with `--catalog-path <path>`."
 }
 
 func scanWithCatalogValidation(ctx context.Context, reader catalog.Reader, report *claircore.IndexReport, scan func() error) error {
