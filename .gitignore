@@ -3,6 +3,6 @@
 /feeds
 /reports
 /vendor
-/cvetool
+/veseer
 /*.db*
-/cvetool*.tar.*
+/veseer*.tar.*
