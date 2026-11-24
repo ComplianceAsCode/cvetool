@@ -1,12 +1,15 @@
-# CVE Tool
+# veseer
 
-A [Claircore](https://github.com/quay/claircore)-based CVE manager (see also [clair-action](https://github.com/quay/clair-action/)).
+This tool scans a Red Hat based Linux environment and reports present CVEs based on installed RPM packages and Red Hat provided VEX data.
+The tool can scan local file systems, mounted VM images or container images.
+
+The tool is based on [Claircore](https://github.com/quay/claircore) and [clair-action](https://github.com/quay/clair-action/)).
 
 # Install
-You can install cvetool from the copr repos below.
+You can install veseer from the copr repos below.
 
-* [![rhel copr badge](https://copr.fedorainfracloud.org/coprs/packit/ComplianceAsCode-cvetool-main-rhel/package/cvetool/status_image/last_build.png)](https://copr.fedorainfracloud.org/coprs/packit/ComplianceAsCode-cvetool-main-rhel/) - RHEL
-* [![fedora copr badge](https://copr.fedorainfracloud.org/coprs/packit/ComplianceAsCode-cvetool-main-fedora/package/cvetool/status_image/last_build.png)](https://copr.fedorainfracloud.org/coprs/packit/ComplianceAsCode-cvetool-main-fedora/) - Fedora
+* [![rhel copr badge](https://copr.fedorainfracloud.org/coprs/packit/ComplianceAsCode-veseer-main-rhel/package/veseer/status_image/last_build.png)](https://copr.fedorainfracloud.org/coprs/packit/ComplianceAsCode-veseer-main-rhel/) - RHEL
+* [![fedora copr badge](https://copr.fedorainfracloud.org/coprs/packit/ComplianceAsCode-veseer-main-fedora/package/veseer/status_image/last_build.png)](https://copr.fedorainfracloud.org/coprs/packit/ComplianceAsCode-veseer-main-fedora/) - Fedora
 
 # Build
 
@@ -26,14 +29,14 @@ and filled with CVE records.
 
 Run
 ```
-$ ./cvetool update
+$ ./veseer update
 ```
 to create or update the DB (SQLite).
 
 The `--db-path` argument is the path to the database location. 
 
 > [!NOTE]
-> If the parameter is omitted the tool creates database for the user in `~/.local/share/cvetool/matcher.db`.
+> If the parameter is omitted the tool creates database for the user in `~/.local/share/veseer/matcher.db`.
 
 The initial update procedure could take up to 30 minutes. Further incremental updates will be significantly faster.
 
@@ -41,13 +44,13 @@ The initial update procedure could take up to 30 minutes. Further incremental up
 
 Run
 ```
-$ ./cvetool scan --root-path=/
+$ ./veseer scan --root-path=/
 ```
 to scan the underlying system and generate vulnerabilities report.
 
 The `--root-path` argument defines root directory of the target file system.
 
-For local or mounted RHEL filesystem roots, cvetool automatically discovers
+For local or mounted RHEL filesystem roots, veseer automatically discovers
 the target's enabled repositories with DNF and generates a temporary package
 catalog for the scan. The temporary catalog and DNF cache are removed when the
 scan finishes.
@@ -56,7 +59,7 @@ scan finishes.
 
 Run
 ```
-$ ./cvetool scan --image-path=./rhel-10-ubi.tar
+$ ./veseer scan --image-path=./rhel-10-ubi.tar
 ```
 to scan a `podman/docker image save ...`-compatible `.tar` image and generate vulnerabilities report.
 
@@ -71,7 +74,7 @@ $ guestmount -a ~/.local/share/gnome-boxes/images/rhel10.0 -i --ro ./rhel10-vm
 ```
 to mount the file system, and then
 ```
-$ ./cvetool scan --root-path=./rhel10-vm --db-path=./matcher.db
+$ ./veseer scan --root-path=./rhel10-vm --db-path=./matcher.db
 ```
 to scan and generate vulnerabilities report.
 
@@ -82,17 +85,17 @@ instead of discovering repositories from the target root. Generate a catalog
 on a connected RHEL system with the relevant repositories enabled:
 
 ```
-$ ./cvetool catalog --output-path=./rhel10.catalog
+$ ./veseer catalog --output-path=./rhel10.catalog
 ```
 
-The standalone `cvetool catalog` command remains available for preparing a
+The standalone `veseer catalog` command remains available for preparing a
 catalog ahead of a scan. Use a catalog for the target's RHEL major version and
 architecture, then pass it to the offline filesystem or image scan with
 `--catalog-path`:
 
 ```
-$ cvetool scan --root-path=./rhel10-vm --db-path=./matcher.db --catalog-path=./rhel10.catalog
-$ cvetool scan --image-path=./rhel-10-ubi.tar --db-path=./matcher.db --catalog-path=./rhel10.catalog
+$ veseer scan --root-path=./rhel10-vm --db-path=./matcher.db --catalog-path=./rhel10.catalog
+$ veseer scan --image-path=./rhel-10-ubi.tar --db-path=./matcher.db --catalog-path=./rhel10.catalog
 ```
 
 # Report Formats
