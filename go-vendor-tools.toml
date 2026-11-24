@@ -20,6 +20,6 @@ expression = "MIT AND Apache-2.0"
 
 [[licensing.licenses]]
 path = "vendor/modernc.org/sqlite/LICENSE-3RD-PARTY.md"
-sha256sum = "4194f8e7119be72babd499db4f6f1f7547e36e8a7bffcb2b9c8df241b8f1576a"
+sha256sum = "f4a00ade8f4057ab0ea49097d9c459df8559fcf10ca78da0c950343fb7428d37"
 expression = "MIT AND BSD-3-Clause AND blessing"
 
