@@ -3,7 +3,7 @@
 
 # https://github.com/ComplianceAsCode/veseer
 %global goipath         github.com/ComplianceAsCode/veseer
-Version:                0.1.1
+Version:                0.1.2
 
 %gometa -L -f
 
