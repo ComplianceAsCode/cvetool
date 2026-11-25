@@ -9,7 +9,7 @@ import (
 	"strconv"
 	"strings"
 
-	migrations "github.com/ComplianceAsCode/cvetool/datastore/sqlite/migrations"
+	migrations "github.com/ComplianceAsCode/veseer/datastore/sqlite/migrations"
 	version "github.com/hashicorp/go-version"
 	"github.com/quay/claircore/datastore"
 	"github.com/quay/zlog"

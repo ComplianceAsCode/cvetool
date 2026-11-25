@@ -10,7 +10,7 @@ import (
 	"sync"
 	"testing"
 
-	"github.com/ComplianceAsCode/cvetool/image"
+	"github.com/ComplianceAsCode/veseer/image"
 	"github.com/quay/claircore"
 	"github.com/quay/claircore/indexer"
 )

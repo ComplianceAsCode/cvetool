@@ -1,4 +1,4 @@
-module github.com/ComplianceAsCode/cvetool
+module github.com/ComplianceAsCode/veseer
 
 go 1.26.0
 

@@ -6,7 +6,7 @@ import (
 	"os"
 	"path/filepath"
 
-	"github.com/ComplianceAsCode/cvetool/catalog"
+	"github.com/ComplianceAsCode/veseer/catalog"
 	"github.com/quay/zlog"
 	"github.com/urfave/cli/v2"
 )

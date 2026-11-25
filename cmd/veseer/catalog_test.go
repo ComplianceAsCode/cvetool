@@ -10,7 +10,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/ComplianceAsCode/cvetool/catalog"
+	"github.com/ComplianceAsCode/veseer/catalog"
 	"github.com/urfave/cli/v2"
 )
 
@@ -20,7 +20,7 @@ func TestCatalogCommandHelp(t *testing.T) {
 	app.Writer = &output
 	app.Commands = []*cli.Command{catalogCmd}
 
-	if err := app.Run([]string{"cvetool", "catalog", "--help"}); err != nil {
+	if err := app.Run([]string{"veseer", "catalog", "--help"}); err != nil {
 		t.Fatal(err)
 	}
 	for _, flag := range []string{
@@ -38,7 +38,7 @@ func TestCatalogCommandHelp(t *testing.T) {
 func TestCatalogCommandRequiresOutput(t *testing.T) {
 	app := cli.NewApp()
 	app.Commands = []*cli.Command{catalogCmd}
-	err := app.Run([]string{"cvetool", "catalog"})
+	err := app.Run([]string{"veseer", "catalog"})
 	if err == nil {
 		t.Fatal("catalog command accepted a missing output path")
 	}

@@ -43,7 +43,7 @@ func latestFixedInByName(t *testing.T, store *sqliteMatcherStore, updater string
 // Regression: after migration 02, vuln names live in metadata via name_id.
 // Selecting "name" from vuln on SQLite silently becomes the string literal
 // "name", so delta carry-forward never drops updated/deleted advisories and
-// stale FixedInVersion rows stay queryable after cvetool update.
+// stale FixedInVersion rows stay queryable after veseer update.
 func TestVulnerabilityUpdatesAndDeltaSemantics(t *testing.T) {
 	ctx := context.Background()
 	store, err := NewSQLiteMatcherStore(filepath.Join(t.TempDir(), "matcher.db"), true)

@@ -28,7 +28,7 @@ import (
 )
 
 const (
-	userAgent = `cvetool/1`
+	userAgent = `veseer/1`
 )
 
 func rt(ctx context.Context, ref string) (http.RoundTripper, error) {

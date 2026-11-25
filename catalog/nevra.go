@@ -16,7 +16,7 @@ type NEVRA struct {
 }
 
 // ParsePackage mirrors Claircore's internal EVR parsing because that package is
-// not importable from cvetool under Go's internal package rule. See the design
+// not importable from veseer under Go's internal package rule. See the design
 // document's "NEVRA Parsing Decision" section for the dependency rationale.
 func ParsePackage(pkg *claircore.Package) (NEVRA, error) {
 	if pkg == nil {

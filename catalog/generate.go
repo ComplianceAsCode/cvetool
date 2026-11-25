@@ -110,7 +110,7 @@ func Generate(ctx context.Context, options GenerateOptions) error {
 	}
 	packageHash := sha256.Sum256([]byte(joinStrings(packageValues)))
 	targetDir := filepath.Dir(options.OutputPath)
-	temporary, err := os.CreateTemp(targetDir, ".cvetool-catalog-*")
+	temporary, err := os.CreateTemp(targetDir, ".veseer-catalog-*")
 	if err != nil {
 		return err
 	}
