@@ -5,6 +5,10 @@ The tool can scan local file systems, mounted VM images or container images.
 
 The tool is based on [Claircore](https://github.com/quay/claircore) and [clair-action](https://github.com/quay/clair-action/)).
 
+> [!NOTE]
+> veseer was formerly called **cvetool**. The project was renamed because the original name was too generic and too narrowly focused on CVEs.
+> The command is now `veseer`, and the default database directory has changed from `~/.local/share/cvetool` to `~/.local/share/veseer`.
+
 # Install
 You can install veseer from the copr repos below.
 
@@ -37,6 +41,8 @@ The `--db-path` argument is the path to the database location.
 
 > [!NOTE]
 > If the parameter is omitted the tool creates database for the user in `~/.local/share/veseer/matcher.db`.
+
+If you previously used cvetool, you can keep using your existing database by passing `--db-path ~/.local/share/cvetool/matcher.db` to `veseer update` and `veseer scan`.
 
 The initial update procedure could take up to 30 minutes. Further incremental updates will be significantly faster.
 
