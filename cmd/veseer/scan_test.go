@@ -132,12 +132,7 @@ func TestScanCleanupPreservesRealizerAndArenaErrors(t *testing.T) {
 		_ = tracked.Close(ctx)
 	})
 
-	li, err = libindex.New(ctx, &libindex.Options{
-		Store:      datastore.NewLocalIndexerStore(),
-		Locker:     NewLocalLockSource(),
-		Ecosystems: []*indexer.Ecosystem{rhel.NewEcosystem(ctx)},
-		FetchArena: tracked,
-	}, http.DefaultClient)
+	li, err = libindex.New(ctx, scanTestIndexerOptions(t, tracked), http.DefaultClient)
 	if err != nil {
 		t.Fatalf("libindex.New: %v", err)
 	}
@@ -191,12 +186,7 @@ func TestIndexFailureCleanupPreservesCloseErrors(t *testing.T) {
 		}
 	})
 
-	li, err = libindex.New(ctx, &libindex.Options{
-		Store:      datastore.NewLocalIndexerStore(),
-		Locker:     NewLocalLockSource(),
-		Ecosystems: []*indexer.Ecosystem{rhel.NewEcosystem(ctx)},
-		FetchArena: tracked,
-	}, http.DefaultClient)
+	li, err = libindex.New(ctx, scanTestIndexerOptions(t, tracked), http.DefaultClient)
 	if err != nil {
 		t.Fatalf("libindex.New: %v", err)
 	}
@@ -238,12 +228,7 @@ func indexAndCloseScanResources(t *testing.T, mf *claircore.Manifest, arena inde
 	})
 
 	var err error
-	li, err = libindex.New(ctx, &libindex.Options{
-		Store:      datastore.NewLocalIndexerStore(),
-		Locker:     NewLocalLockSource(),
-		Ecosystems: []*indexer.Ecosystem{rhel.NewEcosystem(ctx)},
-		FetchArena: tracked,
-	}, http.DefaultClient)
+	li, err = libindex.New(ctx, scanTestIndexerOptions(t, tracked), http.DefaultClient)
 	if err != nil {
 		t.Fatalf("libindex.New: %v", err)
 	}
@@ -254,6 +239,34 @@ func indexAndCloseScanResources(t *testing.T, mf *claircore.Manifest, arena inde
 		t.Errorf("closeScanResources: %v", err)
 	}
 	resourcesClosed = true
+}
+
+func scanTestIndexerOptions(t *testing.T, arena indexer.FetchArena) *libindex.Options {
+	t.Helper()
+	// These tests exercise resource lifecycles, not repository matching.
+	// An empty local mapping keeps the real RHEL scanner independent of the network.
+	mappingPath := filepath.Join(t.TempDir(), "repository-to-cpe.json")
+	if err := os.WriteFile(mappingPath, []byte(`{"data":{}}`), 0o600); err != nil {
+		t.Fatalf("write repository mapping: %v", err)
+	}
+	opts := &libindex.Options{
+		Store:      datastore.NewLocalIndexerStore(),
+		Locker:     NewLocalLockSource(),
+		Ecosystems: []*indexer.Ecosystem{rhel.NewEcosystem(context.Background())},
+		FetchArena: arena,
+	}
+	opts.ScannerConfig.Repo = map[string]func(any) error{
+		"rhel-repository-scanner": func(value any) error {
+			config, ok := value.(*rhel.RepositoryScannerConfig)
+			if !ok {
+				return fmt.Errorf("expected *rhel.RepositoryScannerConfig, got %T", value)
+			}
+			config.Repo2CPEMappingFile = mappingPath
+			config.Repo2CPEMappingURL = ""
+			return nil
+		},
+	}
+	return opts
 }
 
 func scanLayerTar(t *testing.T) []byte {
