@@ -6,7 +6,14 @@ exclude_files = ["vendor/modernc.org/memory/LICENSE-LOGO"]
 [[licensing.licenses]]
 path = "vendor/modernc.org/libc/LICENSE-3RD-PARTY.md"
 sha256sum = "f597097efe3d97021f89170746bd3a0fb9a8b6fb26b82043ed68a4e0283bee6c"
-expression = "(MIT WITH LicenseRef-scancode-musl-exception) AND (LicenseRef-scancode-other-permissive AND BSD-2-Clause) AND (BSD-3-Clause AND (LicenseRef-scancode-public-domain OR LicenseRef-scancode-other-permissive) AND MIT)"
+# musl sources pinned by modernc.org/libc v1.80.1:
+# https://git.musl-libc.org/cgit/musl/tree/?id=7ada6dde6f9dc6a2836c3d92c2f762d35fd229e0
+# COPYRIGHT grants MIT with optional attribution relief; retain the MIT terms.
+# src/regex/tre.h: BSD-2-Clause; src/crypt/crypt_des.c: BSD-3-Clause.
+# src/math/lgammal.c: ISC and SunPro; src/crypt/crypt_blowfish.c:
+# bcrypt-Solar-Designer (public-domain dedication with permissive fallback).
+# src/crypt/crypt_sha256.c and crypt_sha512.c declare public-domain code.
+expression = "MIT AND BSD-2-Clause AND BSD-3-Clause AND ISC AND SunPro AND bcrypt-Solar-Designer AND LicenseRef-Fedora-Public-Domain"
 
 [[licensing.licenses]]
 path = "vendor/modernc.org/sqlite/LICENSE-SQLITE"
@@ -22,4 +29,3 @@ expression = "MIT AND Apache-2.0"
 path = "vendor/modernc.org/sqlite/LICENSE-3RD-PARTY.md"
 sha256sum = "f4a00ade8f4057ab0ea49097d9c459df8559fcf10ca78da0c950343fb7428d37"
 expression = "MIT AND BSD-3-Clause AND blessing"
-
